@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+/* Tiptap editor styles */
+.ProseMirror {
+  @apply min-h-[300px] outline-none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-gray-400 float-left h-0 pointer-events-none;
+}
+.ProseMirror h1 { @apply text-2xl font-semibold mt-6 mb-3; }
+.ProseMirror h2 { @apply text-xl font-semibold mt-5 mb-2; }
+.ProseMirror h3 { @apply text-lg font-semibold mt-4 mb-2; }
+.ProseMirror p { @apply my-3 leading-relaxed; }
+.ProseMirror ul { @apply list-disc pl-6 my-3; }
+.ProseMirror ol { @apply list-decimal pl-6 my-3; }
+.ProseMirror blockquote { @apply border-l-4 border-gray-300 pl-4 italic my-4; }
+.ProseMirror code { @apply bg-gray-100 px-1 rounded text-sm; }
+.ProseMirror pre { @apply bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto my-4; }
+.ProseMirror img { @apply rounded-md max-w-full h-auto my-4; }
+.ProseMirror a { @apply text-blue-600 underline; }
