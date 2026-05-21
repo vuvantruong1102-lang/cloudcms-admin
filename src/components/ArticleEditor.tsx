@@ -25,7 +25,7 @@ import { api } from '../lib/api';
 import { ResizableImage } from '../lib/ResizableImage';
 import { Callout } from '../lib/CalloutExtension';
 import { FontSize } from '../lib/FontSizeExtension';
-import { FAQSection, FAQItem, FAQQuestion, FAQAnswer } from '../lib/FAQExtension';
+import { FAQBlock, type FAQData } from '../lib/FAQExtension';
 import FAQManager, { type FAQEntry } from './FAQManager';
 
 type Props = {
@@ -71,88 +71,6 @@ const FONT_SIZES = [
   { label: 'Khổng lồ', value: '36px' },
 ];
 
-// ============================================================
-// FAQ Helper: parse HTML editor → FAQEntry[]
-// Tìm div.faq-section trong content, extract Q+A từ mỗi details.faq-item
-// ============================================================
-function parseFAQsFromHtml(html: string): FAQEntry[] {
-  if (!html || !html.includes('faq-item')) return [];
-
-  // Dùng DOMParser của browser để parse an toàn
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const items = doc.querySelectorAll('details.faq-item');
-
-  const faqs: FAQEntry[] = [];
-  items.forEach((item, idx) => {
-    const qEl = item.querySelector('summary.faq-question');
-    const aEl = item.querySelector('div.faq-answer');
-    const question = qEl?.textContent?.trim() || '';
-    // Lấy text answer giữ nguyên xuống dòng (chuyển <p> thành \n\n, <br> thành \n)
-    let answer = '';
-    if (aEl) {
-      const paragraphs = aEl.querySelectorAll('p');
-      if (paragraphs.length > 0) {
-        answer = Array.from(paragraphs)
-          .map((p) => {
-            // Clone để không modify original DOM
-            const clone = p.cloneNode(true) as HTMLElement;
-            // Thay <br> bằng newline trước khi lấy textContent
-            clone.querySelectorAll('br').forEach((br) => {
-              br.replaceWith('\n');
-            });
-            return clone.textContent?.trim() || '';
-          })
-          .filter(Boolean)
-          .join('\n\n');
-      } else {
-        answer = aEl.textContent?.trim() || '';
-      }
-    }
-    if (question || answer) {
-      faqs.push({ id: `faq_existing_${idx}`, question, answer });
-    }
-  });
-
-  return faqs;
-}
-
-// ============================================================
-// FAQ Helper: render FAQEntry[] → HTML string
-// Output match đúng format mà FAQ Extension expect
-// ============================================================
-function renderFAQsToHtml(faqs: FAQEntry[]): string {
-  if (faqs.length === 0) return '';
-
-  const items = faqs
-    .map((f) => {
-      // Escape HTML để tránh XSS
-      const q = escapeHtml(f.question);
-      // Answer: chia thành paragraphs theo dòng trống (\n\n)
-      const paragraphs = f.answer
-        .split(/\n\n+/)
-        .map((p) => p.trim())
-        .filter(Boolean)
-        // Trong mỗi paragraph, convert single \n thành <br>
-        .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
-        .join('');
-
-      return `<details class="faq-item"><summary class="faq-question">${q}</summary><div class="faq-answer">${paragraphs}</div></details>`;
-    })
-    .join('');
-
-  return `<div class="faq-section" data-faq="true">${items}</div>`;
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -195,10 +113,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       TableRow,
       TableHeader,
       TableCell,
-      FAQSection,
-      FAQItem,
-      FAQQuestion,
-      FAQAnswer,
+      FAQBlock,
     ],
     content: initialHtml,
     onUpdate({ editor }) {
@@ -651,13 +566,24 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
         <button
           type="button"
           onClick={() => {
-            // Parse FAQ section hiện có trong content (nếu có)
-            const html = editor.getHTML();
-            const existing = parseFAQsFromHtml(html);
-            setCurrentFAQs(existing);
+            // Tìm faqBlock node trong document, lấy attribute faqs
+            let existingFaqs: FAQData[] = [];
+            editor.state.doc.descendants((node) => {
+              if (node.type.name === 'faqBlock') {
+                existingFaqs = (node.attrs.faqs as FAQData[]) || [];
+                return false; // dừng iteration
+              }
+            });
+            // Map FAQData -> FAQEntry (thêm id để FAQManager dùng)
+            const entries = existingFaqs.map((f, i) => ({
+              id: `faq_existing_${i}_${Date.now()}`,
+              question: f.question,
+              answer: f.answer,
+            }));
+            setCurrentFAQs(entries);
             setShowFAQModal(true);
           }}
-          className={btn(editor.isActive('faqSection'))}
+          className={btn(editor.isActive('faqBlock'))}
           title="Quản lý FAQ (Câu hỏi thường gặp) - tốt cho SEO"
         >
           <HelpCircle className="w-4 h-4" />
@@ -708,35 +634,50 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
         initialFaqs={currentFAQs}
         onClose={() => setShowFAQModal(false)}
         onSave={(faqs) => {
-          // Render thành HTML
-          const newFaqHtml = renderFAQsToHtml(faqs);
-          const currentHtml = editor.getHTML();
+          // Convert FAQEntry → FAQData (bỏ id)
+          const faqData: FAQData[] = faqs.map((f) => ({
+            question: f.question,
+            answer: f.answer,
+          }));
 
-          // Dùng DOMParser để safely find & replace FAQ sections (handle nested divs)
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(`<body>${currentHtml}</body>`, 'text/html');
-          const existingFaqs = doc.querySelectorAll('div.faq-section');
+          // Tìm faqBlock node hiện có
+          let existingPos: number | null = null;
+          let existingNodeSize: number = 0;
+          editor.state.doc.descendants((node, pos) => {
+            if (node.type.name === 'faqBlock') {
+              existingPos = pos;
+              existingNodeSize = node.nodeSize;
+              return false;
+            }
+          });
 
-          if (existingFaqs.length > 0) {
-            // Có FAQ section(s) - xóa tất cả, insert mới (nếu có)
-            existingFaqs.forEach((node, idx) => {
-              if (idx === 0 && newFaqHtml) {
-                // Replace cái đầu tiên bằng FAQ mới
-                const wrapper = doc.createElement('div');
-                wrapper.innerHTML = newFaqHtml;
-                const newNode = wrapper.firstChild;
-                if (newNode) node.replaceWith(newNode);
-              } else {
-                // Xóa các FAQ thừa (hoặc xóa hoàn toàn nếu không có nội dung mới)
-                node.remove();
-              }
+          if (faqData.length === 0) {
+            // Xóa FAQ - nếu có node thì delete
+            if (existingPos !== null) {
+              editor
+                .chain()
+                .focus()
+                .setNodeSelection(existingPos)
+                .deleteSelection()
+                .run();
+            }
+          } else if (existingPos !== null) {
+            // Update node hiện có
+            const tr = editor.state.tr.setNodeMarkup(existingPos, undefined, {
+              faqs: faqData,
             });
-            editor.commands.setContent(doc.body.innerHTML, false);
-          } else if (newFaqHtml) {
-            // Chưa có FAQ → insert ở cursor
-            editor.chain().focus().insertContent(newFaqHtml).run();
+            editor.view.dispatch(tr);
+          } else {
+            // Insert mới ở cursor
+            editor
+              .chain()
+              .focus()
+              .insertContent({
+                type: 'faqBlock',
+                attrs: { faqs: faqData },
+              })
+              .run();
           }
-          // Nếu cả currentHtml và newFaqHtml đều không có FAQ → không làm gì
         }}
       />
 
