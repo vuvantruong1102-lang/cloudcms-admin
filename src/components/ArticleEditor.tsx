@@ -173,7 +173,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-0.5 p-1.5 bg-gray-50 border border-gray-200 rounded-md mb-3 sticky top-0 z-10">
+      <div className="flex flex-wrap items-center gap-0.5 p-1.5 bg-gray-50 border border-gray-200 rounded-md mb-3 sticky top-[44px] z-10 shadow-sm">
         <select
           onChange={(e) => {
             const v = e.target.value;
