@@ -1,6 +1,6 @@
 {
   "name": "cloudcms-admin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,6 +21,7 @@
     "@tiptap/extension-placeholder": "^2.10.0",
     "@tiptap/extension-font-family": "^2.10.0",
     "@tiptap/extension-text-style": "^2.10.0",
+    "@tiptap/extension-color": "^2.10.0",
     "@tiptap/extension-underline": "^2.10.0",
     "@tiptap/extension-youtube": "^2.10.0",
     "@tiptap/extension-table": "^2.10.0",
