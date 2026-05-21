@@ -1,250 +1,249 @@
 import { Node, mergeAttributes } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    faq: {
-      insertFaq: () => ReturnType;
-      addFaqItem: () => ReturnType;
-      removeFaqItem: () => ReturnType;
-      removeFaqSection: () => ReturnType;
-      moveFaqSectionUp: () => ReturnType;
-      moveFaqSectionDown: () => ReturnType;
+    faqBlock: {
+      /** Insert/update FAQ block với array data */
+      setFaqBlock: (faqs: Array<{ question: string; answer: string }>) => ReturnType;
     };
   }
 }
 
-// FAQ Item
-export const FAQItem = Node.create({
-  name: 'faqItem',
+/**
+ * FAQ Block - ATOMIC node
+ *
+ * Khác với version cũ (Section + Item + Question + Answer là 4 node lồng nhau):
+ * - Đây là 1 node duy nhất, atomic: true
+ * - Data lưu trong attribute `data-faqs` dạng JSON
+ * - Render trong editor như 1 block tĩnh (preview)
+ * - Edit thông qua modal (gọi setFaqBlock)
+ *
+ * Lợi ích:
+ * - Copy/paste như block thường (image, video)
+ * - Select bằng shift+click hoạt động bình thường
+ * - Xóa bằng Delete/Backspace dễ dàng
+ * - Drag-drop được
+ *
+ * HTML format (cả admin và frontend dùng chung):
+ * <div class="faq-section" data-faq="true" data-faqs='[{"q":"...","a":"..."},...]'>
+ *   <details class="faq-item">
+ *     <summary class="faq-question">Q1</summary>
+ *     <div class="faq-answer"><p>A1</p></div>
+ *   </details>
+ *   ...
+ * </div>
+ *
+ * Cả data-faqs JSON và HTML rendered đều được lưu - JSON để edit nhanh,
+ * HTML để frontend render mà không cần JS parse.
+ */
+
+export type FAQData = { question: string; answer: string };
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Render FAQ data thành HTML <details> blocks (cho frontend hiển thị) */
+export function renderFaqsToHtml(faqs: FAQData[]): string {
+  return faqs
+    .map((f) => {
+      const q = escapeHtml(f.question);
+      const paragraphs = f.answer
+        .split(/\n\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+      return `<details class="faq-item"><summary class="faq-question">${q}</summary><div class="faq-answer">${paragraphs}</div></details>`;
+    })
+    .join('');
+}
+
+/** Parse data-faqs attribute từ HTML element */
+function parseFaqsFromElement(el: HTMLElement): FAQData[] {
+  // Ưu tiên data-faqs JSON nếu có
+  const dataAttr = el.getAttribute('data-faqs');
+  if (dataAttr) {
+    try {
+      const parsed = JSON.parse(dataAttr);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((f) => f && typeof f.question === 'string' && typeof f.answer === 'string')
+          .map((f) => ({ question: f.question, answer: f.answer }));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  // Fallback: parse từ HTML <details> nếu data-faqs không có (bài cũ)
+  const items = el.querySelectorAll('details.faq-item');
+  const faqs: FAQData[] = [];
+  items.forEach((item) => {
+    const qEl = item.querySelector('summary.faq-question');
+    const aEl = item.querySelector('div.faq-answer');
+    const question = qEl?.textContent?.trim() || '';
+    let answer = '';
+    if (aEl) {
+      const paragraphs = aEl.querySelectorAll('p');
+      if (paragraphs.length > 0) {
+        answer = Array.from(paragraphs)
+          .map((p) => {
+            const clone = p.cloneNode(true) as HTMLElement;
+            clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+            return clone.textContent?.trim() || '';
+          })
+          .filter(Boolean)
+          .join('\n\n');
+      } else {
+        answer = aEl.textContent?.trim() || '';
+      }
+    }
+    if (question || answer) faqs.push({ question, answer });
+  });
+  return faqs;
+}
+
+export const FAQBlock = Node.create({
+  name: 'faqBlock',
   group: 'block',
-  content: 'faqQuestion faqAnswer',
-
-  parseHTML() {
-    return [{ tag: 'details.faq-item' }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['details', mergeAttributes(HTMLAttributes, { class: 'faq-item' }), 0];
-  },
-});
-
-export const FAQQuestion = Node.create({
-  name: 'faqQuestion',
-  content: 'inline*',
-
-  parseHTML() {
-    return [{ tag: 'summary.faq-question' }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['summary', mergeAttributes(HTMLAttributes, { class: 'faq-question' }), 0];
-  },
-});
-
-export const FAQAnswer = Node.create({
-  name: 'faqAnswer',
-  content: 'block+',
-
-  parseHTML() {
-    return [{ tag: 'div.faq-answer' }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { class: 'faq-answer' }), 0];
-  },
-});
-
-export const FAQSection = Node.create({
-  name: 'faqSection',
-  group: 'block',
-  content: 'faqItem+',
-  // Bỏ draggable - dùng modal để reorder, copy/paste thoải mái hơn
+  atom: true, // atomic - không có content bên trong, dùng attribute để lưu
+  draggable: true,
+  selectable: true,
 
   addAttributes() {
     return {
-      'data-faq': {
-        default: 'true',
-        parseHTML: () => 'true',
-        renderHTML: () => ({ 'data-faq': 'true' }),
+      faqs: {
+        default: [] as FAQData[],
+        parseHTML: (element) => {
+          // Khi load HTML từ DB, parse FAQ data
+          return parseFaqsFromElement(element as HTMLElement);
+        },
+        renderHTML: (attributes) => {
+          // Lưu cả 2: data-faqs JSON (cho edit) và data-faq (legacy)
+          const faqs = (attributes.faqs as FAQData[]) || [];
+          return {
+            'data-faq': 'true',
+            'data-faqs': JSON.stringify(faqs),
+          };
+        },
       },
     };
   },
 
   parseHTML() {
-    return [{ tag: 'div.faq-section[data-faq]' }];
+    return [
+      {
+        tag: 'div.faq-section[data-faq]',
+      },
+    ];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { class: 'faq-section' }), 0];
+  renderHTML({ node, HTMLAttributes }) {
+    // Tiptap renderHTML cần DOMOutputSpec: array hoặc DOM element thật
+    // Vì cần render full <details> bên trong, mình tạo DOM thật
+    const faqs = (node.attrs.faqs as FAQData[]) || [];
+    const innerHtml = renderFaqsToHtml(faqs);
+
+    const dom = document.createElement('div');
+    dom.className = 'faq-section';
+    dom.setAttribute('data-faq', 'true');
+    dom.setAttribute('data-faqs', JSON.stringify(faqs));
+    dom.innerHTML = innerHtml;
+
+    return dom;
+  },
+
+  // NodeView để render preview trong editor
+  addNodeView() {
+    return ({ node, getPos, editor }) => {
+      const dom = document.createElement('div');
+      dom.className = 'faq-section faq-block-preview';
+      dom.setAttribute('data-faq', 'true');
+
+      const faqs = (node.attrs.faqs as FAQData[]) || [];
+
+      function render() {
+        const currentFaqs = (node.attrs.faqs as FAQData[]) || [];
+        const innerHtml = renderFaqsToHtml(currentFaqs);
+        dom.innerHTML = `
+          <div class="faq-block-header">
+            <span class="faq-block-label">❓ FAQ Section · ${currentFaqs.length} câu hỏi</span>
+            <span class="faq-block-hint">Click ❓ trên thanh công cụ hoặc double-click để chỉnh sửa</span>
+          </div>
+          <div class="faq-block-items">${innerHtml || '<p class="faq-block-empty">Chưa có câu hỏi. Click ❓ trên toolbar để thêm.</p>'}</div>
+        `;
+      }
+      render();
+
+      // Double-click → open modal (dispatch custom event để ArticleEditor catch)
+      dom.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const event = new CustomEvent('faq-edit-request', {
+          bubbles: true,
+          detail: { pos: typeof getPos === 'function' ? getPos() : null },
+        });
+        dom.dispatchEvent(event);
+      });
+
+      return {
+        dom,
+        update(updatedNode) {
+          if (updatedNode.type.name !== 'faqBlock') return false;
+          // Re-render khi attribute thay đổi
+          if (JSON.stringify(updatedNode.attrs.faqs) !== JSON.stringify(node.attrs.faqs)) {
+            node = updatedNode as typeof node;
+          }
+          // Lấy faqs mới nhất từ node được pass vào
+          const newFaqs = (updatedNode.attrs.faqs as FAQData[]) || [];
+          const innerHtml = renderFaqsToHtml(newFaqs);
+          dom.innerHTML = `
+            <div class="faq-block-header">
+              <span class="faq-block-label">❓ FAQ Section · ${newFaqs.length} câu hỏi</span>
+              <span class="faq-block-hint">Double-click để chỉnh sửa</span>
+            </div>
+            <div class="faq-block-items">${innerHtml || '<p class="faq-block-empty">Chưa có câu hỏi.</p>'}</div>
+          `;
+          return true;
+        },
+      };
+    };
   },
 
   addCommands() {
-    const makeFaqItem = (q = 'Câu hỏi của bạn?', a = 'Câu trả lời chi tiết...') => ({
-      type: 'faqItem',
-      content: [
-        { type: 'faqQuestion', content: [{ type: 'text', text: q }] },
-        {
-          type: 'faqAnswer',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: a }] }],
-        },
-      ],
-    });
-
     return {
-      insertFaq:
-        () =>
-        ({ commands }) => {
-          return commands.insertContent({
-            type: 'faqSection',
-            attrs: { 'data-faq': 'true' },
-            content: [makeFaqItem()],
+      setFaqBlock:
+        (faqs) =>
+        ({ chain, state }) => {
+          // Tìm faqBlock hiện có trong document
+          let existingPos: number | null = null;
+          state.doc.descendants((node, pos) => {
+            if (node.type.name === 'faqBlock') {
+              existingPos = pos;
+              return false; // stop iterating
+            }
           });
-        },
 
-      addFaqItem:
-        () =>
-        ({ state, dispatch, tr }) => {
-          const { $from } = state.selection;
-          for (let depth = $from.depth; depth >= 0; depth--) {
-            const node = $from.node(depth);
-            if (node.type.name === 'faqSection') {
-              const sectionStart = $from.before(depth);
-              const sectionEnd = sectionStart + node.nodeSize;
-              const insertPos = sectionEnd - 1;
-              const itemNode = state.schema.nodeFromJSON(makeFaqItem());
-              if (dispatch) {
-                tr.insert(insertPos, itemNode);
-                try {
-                  tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 2)));
-                } catch (e) { /* ignore */ }
-                dispatch(tr);
-              }
-              return true;
-            }
+          if (existingPos !== null) {
+            // Update node hiện có
+            return chain()
+              .setNodeSelection(existingPos)
+              .updateAttributes('faqBlock', { faqs })
+              .run();
           }
-          return false;
-        },
-
-      removeFaqItem:
-        () =>
-        ({ state, dispatch, tr }) => {
-          const { $from } = state.selection;
-          for (let depth = $from.depth; depth >= 0; depth--) {
-            const node = $from.node(depth);
-            if (node.type.name === 'faqItem') {
-              const itemStart = $from.before(depth);
-              const itemEnd = itemStart + node.nodeSize;
-
-              const parentDepth = depth - 1;
-              const parentNode = parentDepth >= 0 ? $from.node(parentDepth) : null;
-              if (parentNode?.type.name === 'faqSection' && parentNode.childCount === 1) {
-                const sectionStart = $from.before(parentDepth);
-                const sectionEnd = sectionStart + parentNode.nodeSize;
-                if (dispatch) {
-                  tr.delete(sectionStart, sectionEnd);
-                  dispatch(tr);
-                }
-                return true;
-              }
-
-              if (dispatch) {
-                tr.delete(itemStart, itemEnd);
-                dispatch(tr);
-              }
-              return true;
-            }
-          }
-          return false;
-        },
-
-      removeFaqSection:
-        () =>
-        ({ state, dispatch, tr }) => {
-          const { $from } = state.selection;
-          for (let depth = $from.depth; depth >= 0; depth--) {
-            const node = $from.node(depth);
-            if (node.type.name === 'faqSection') {
-              const sectionStart = $from.before(depth);
-              const sectionEnd = sectionStart + node.nodeSize;
-              if (dispatch) {
-                tr.delete(sectionStart, sectionEnd);
-                dispatch(tr);
-              }
-              return true;
-            }
-          }
-          return false;
-        },
-
-      moveFaqSectionUp:
-        () =>
-        ({ state, dispatch, tr }) => {
-          const { $from } = state.selection;
-          for (let depth = $from.depth; depth >= 0; depth--) {
-            const node = $from.node(depth);
-            if (node.type.name === 'faqSection') {
-              const sectionStart = $from.before(depth);
-              const sectionEnd = sectionStart + node.nodeSize;
-
-              if (sectionStart === 0) return false;
-              const $before = state.doc.resolve(sectionStart);
-              if ($before.depth === 0 && $before.index() === 0) return false;
-
-              // Lấy node anh chị trước
-              const parent = $before.parent;
-              const indexInParent = $before.index();
-              if (indexInParent === 0) return false;
-
-              const prevNode = parent.child(indexInParent - 1);
-              const prevStart = sectionStart - prevNode.nodeSize;
-
-              const faqJson = node.toJSON();
-
-              if (dispatch) {
-                // Xóa FAQ trước, rồi insert vào trước prev
-                tr.delete(sectionStart, sectionEnd);
-                tr.insert(prevStart, state.schema.nodeFromJSON(faqJson));
-                tr.setSelection(TextSelection.near(tr.doc.resolve(prevStart + 1)));
-                dispatch(tr);
-              }
-              return true;
-            }
-          }
-          return false;
-        },
-
-      moveFaqSectionDown:
-        () =>
-        ({ state, dispatch, tr }) => {
-          const { $from } = state.selection;
-          for (let depth = $from.depth; depth >= 0; depth--) {
-            const node = $from.node(depth);
-            if (node.type.name === 'faqSection') {
-              const sectionStart = $from.before(depth);
-              const sectionEnd = sectionStart + node.nodeSize;
-
-              const $before = state.doc.resolve(sectionStart);
-              const parent = $before.parent;
-              const indexInParent = $before.index();
-              if (indexInParent >= parent.childCount - 1) return false;
-
-              const nextNode = parent.child(indexInParent + 1);
-              const newInsertPos = sectionStart + nextNode.nodeSize;
-
-              const faqJson = node.toJSON();
-
-              if (dispatch) {
-                tr.delete(sectionStart, sectionEnd);
-                tr.insert(newInsertPos - node.nodeSize, state.schema.nodeFromJSON(faqJson));
-                const finalPos = newInsertPos - node.nodeSize + 1;
-                tr.setSelection(TextSelection.near(tr.doc.resolve(finalPos)));
-                dispatch(tr);
-              }
-              return true;
-            }
-          }
-          return false;
+          // Insert mới ở cursor
+          return chain()
+            .focus()
+            .insertContent({
+              type: 'faqBlock',
+              attrs: { faqs },
+            })
+            .run();
         },
     };
   },
