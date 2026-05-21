@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, Rocket, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { Save, Rocket, ArrowLeft, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
+import { slugify } from '../lib/slugify';
 import ArticleEditor from '../components/ArticleEditor';
 import SeoPanel from '../components/SeoPanel';
 import MediaPicker from '../components/MediaPicker';
@@ -38,23 +39,80 @@ export default function PostEditor() {
   const [autoSaved, setAutoSaved] = useState<number | null>(null);
   const [pickerMode, setPickerMode] = useState<'editor' | 'featured' | null>(null);
 
+  // ===== Auto-slug: track xem user đã manual edit slug chưa =====
+  // Nếu user edit slug bằng tay → STOP auto sync từ title
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+
+  // ===== Topbar height: đo runtime để toolbar sticky đúng vị trí =====
+  const topbarRef = useRef<HTMLDivElement>(null);
+
   // Load nếu là edit
   useEffect(() => {
     if (!id) return;
     api.get<Post>(`/posts/${id}`).then((p) => {
       setPost({ ...empty, ...p });
+      // Bài đã có slug từ trước → coi như user đã manual set (không auto override)
+      if (p.slug) setSlugManuallyEdited(true);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
 
+  // ===== Đo topbar height + set CSS variable cho sticky toolbar =====
+  useEffect(() => {
+    function updateTopbarHeight() {
+      if (topbarRef.current) {
+        const h = topbarRef.current.getBoundingClientRect().height;
+        // Set CSS var trên body để ArticleEditor đọc được
+        document.documentElement.style.setProperty('--editor-topbar-h', `${h}px`);
+      }
+    }
+    updateTopbarHeight();
+    window.addEventListener('resize', updateTopbarHeight);
+    // Re-measure khi autoSaved hiện (topbar có thể cao thêm)
+    const t = setTimeout(updateTopbarHeight, 100);
+    return () => {
+      window.removeEventListener('resize', updateTopbarHeight);
+      clearTimeout(t);
+    };
+  }, [autoSaved, isNew]);
+
   function update<K extends keyof Post>(k: K, v: Post[K]) {
     setPost((p) => ({ ...p, [k]: v }));
+  }
+
+  // ===== Update title + auto-sync slug nếu chưa được edit thủ công =====
+  function updateTitle(newTitle: string) {
+    setPost((p) => {
+      const next = { ...p, title: newTitle };
+      if (!slugManuallyEdited) {
+        next.slug = slugify(newTitle);
+      }
+      return next;
+    });
+  }
+
+  // ===== Update slug thủ công - đánh dấu user đã edit =====
+  function updateSlug(newSlug: string) {
+    setSlugManuallyEdited(true);
+    // Cũng auto clean slug khi gõ (loại space, ký tự lạ)
+    const cleaned = slugify(newSlug);
+    update('slug', cleaned);
+  }
+
+  // ===== Nút "Đặt lại từ tiêu đề" - reset slug về auto-sync =====
+  function resetSlugFromTitle() {
+    update('slug', slugify(post.title));
+    setSlugManuallyEdited(false);
   }
 
   async function save(newStatus?: Post['status']) {
     setSaving(true);
     try {
       const payload = { ...post, status: newStatus ?? post.status };
+      // Nếu chưa có slug khi save, generate từ title luôn
+      if (!payload.slug && payload.title) {
+        payload.slug = slugify(payload.title);
+      }
       if (isNew) {
         const resp = await api.post<{ id: string }>('/posts', payload);
         nav(`/posts/${resp.id}`, { replace: true });
@@ -84,7 +142,6 @@ export default function PostEditor() {
       update('featured_image_id', m.id);
       if (m.alt_text) update('featured_image_alt', m.alt_text);
     } else if (pickerMode === 'editor') {
-      // Chèn vào nội dung qua command - dùng innerHTML hack tạm
       const html = `<p><img src="${m.url}" alt="${m.alt_text ?? ''}" /></p>`;
       update('content_html', (post.content_html ?? '') + html);
     }
@@ -97,8 +154,11 @@ export default function PostEditor() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-20">
+      {/* Top bar - sticky top-0 */}
+      <div
+        ref={topbarRef}
+        className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-20"
+      >
         <div className="flex items-center gap-3">
           <button onClick={() => nav('/posts')} className="p-1.5 hover:bg-gray-100 rounded">
             <ArrowLeft className="w-4 h-4" />
@@ -133,18 +193,35 @@ export default function PostEditor() {
         <div className="space-y-3">
           <input
             value={post.title}
-            onChange={(e) => update('title', e.target.value)}
+            onChange={(e) => updateTitle(e.target.value)}
             placeholder="Nhập tiêu đề bài viết…"
             className="w-full text-2xl font-semibold py-2 px-1 border-0 focus:outline-none bg-transparent"
           />
-          <div className="flex items-center gap-2 text-xs text-gray-500 px-1">
-            URL: <span className="text-blue-600">/blog/{post.slug || '(tự tạo từ tiêu đề)'}</span>
+
+          {/* URL row - hiển thị slug auto-generate hoặc cho phép custom */}
+          <div className="flex items-center gap-2 text-xs text-gray-500 px-1 flex-wrap">
+            <span>URL:</span>
+            <span className="text-gray-400">/blog/</span>
             <input
               value={post.slug}
-              onChange={(e) => update('slug', e.target.value)}
-              placeholder="custom-slug"
-              className="border border-gray-200 rounded px-2 py-0.5 text-xs ml-2"
+              onChange={(e) => updateSlug(e.target.value)}
+              placeholder={post.title ? slugify(post.title) : 'auto-tu-tieu-de'}
+              className="border border-gray-200 rounded px-2 py-0.5 text-xs font-mono flex-1 min-w-[200px] focus:border-blue-400 focus:outline-none"
             />
+            {slugManuallyEdited && post.title && (
+              <button
+                onClick={resetSlugFromTitle}
+                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                title="Đặt lại slug tự động từ tiêu đề"
+                type="button"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Đặt lại từ tiêu đề
+              </button>
+            )}
+            {!slugManuallyEdited && post.title && (
+              <span className="text-xs text-green-600">✓ Tự động</span>
+            )}
           </div>
 
           <ArticleEditor
@@ -187,7 +264,7 @@ export default function PostEditor() {
                 onClick={() => setPickerMode('featured')}
                 className="w-full aspect-video bg-gray-50 rounded-md border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-100 text-xs"
               >
-                <ImageIcon className="w-6 h-6 mb-1" />
+                <span className="text-2xl mb-1">🖼️</span>
                 Chọn ảnh
               </button>
             )}
