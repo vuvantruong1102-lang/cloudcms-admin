@@ -31,19 +31,24 @@
 /* ============================================================
    FAQ - Admin Editor styles
    - Trong editor: ép luôn show content (như đang mở) để dễ chỉnh sửa
-   - Không cần click để mở/đóng
+   - Cho phép select/copy text bình thường
    ============================================================ */
 .ProseMirror .faq-section {
   @apply my-4 border border-blue-200 rounded-lg p-3 bg-blue-50/30;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .ProseMirror .faq-section::before {
-  content: '❓ FAQ Section (Câu hỏi thường gặp)';
+  content: '❓ FAQ Section (Câu hỏi thường gặp) - Click nút ❓ trên thanh công cụ để chỉnh sửa';
   @apply block text-xs font-medium text-blue-700 mb-2 uppercase tracking-wide;
+  user-select: none;
 }
 
 .ProseMirror .faq-item {
   @apply mb-2 bg-white border border-gray-200 rounded-md p-3;
+  user-select: text;
 }
 
 .ProseMirror .faq-item:last-child {
@@ -56,8 +61,10 @@
 }
 
 .ProseMirror .faq-question {
-  @apply font-semibold text-gray-900 mb-1.5 cursor-text;
+  @apply font-semibold text-gray-900 mb-1.5;
   list-style: none;
+  user-select: text;
+  cursor: text;
 }
 
 .ProseMirror .faq-question::-webkit-details-marker,
@@ -68,10 +75,12 @@
 .ProseMirror .faq-question::before {
   content: '❓ ';
   @apply text-blue-500;
+  user-select: none;
 }
 
 .ProseMirror .faq-answer {
   @apply text-gray-700 text-sm pl-5 border-l-2 border-blue-200;
+  user-select: text;
 }
 
 .ProseMirror .faq-answer p {
