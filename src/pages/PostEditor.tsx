@@ -6,6 +6,7 @@ import { slugify } from '../lib/slugify';
 import ArticleEditor from '../components/ArticleEditor';
 import SeoPanel from '../components/SeoPanel';
 import MediaPicker from '../components/MediaPicker';
+import CategorySelect from '../components/CategorySelect';
 
 type Post = {
   id: string; slug: string; title: string; excerpt: string;
@@ -275,6 +276,12 @@ export default function PostEditor() {
               className="w-full mt-2 px-2 py-1 border border-gray-200 rounded text-xs"
             />
           </div>
+
+          {/* Category select */}
+          <CategorySelect
+            value={post.category_id}
+            onChange={(id) => update('category_id', id)}
+          />
 
           {/* SEO Panel */}
           <SeoPanel
