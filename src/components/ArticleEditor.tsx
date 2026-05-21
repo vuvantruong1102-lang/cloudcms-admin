@@ -6,6 +6,7 @@ import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import Color from '@tiptap/extension-color';
+import TextAlign from '@tiptap/extension-text-align';
 import Youtube from '@tiptap/extension-youtube';
 import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -16,11 +17,13 @@ import {
   List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Sparkles, Redo, Undo,
   Youtube as YoutubeIcon, Info, AlertTriangle, CheckCircle, Lightbulb,
   Table as TableIcon, Upload, Palette,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify, Type,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import { ResizableImage } from '../lib/ResizableImage';
 import { Callout } from '../lib/CalloutExtension';
+import { FontSize } from '../lib/FontSizeExtension';
 
 type Props = {
   initialHtml: string;
@@ -54,11 +57,24 @@ const COLORS = [
   { label: 'Nâu', value: '#92400e' },
 ];
 
+// Font size presets — 6 mức phổ biến + custom input
+const FONT_SIZES = [
+  { label: 'Rất nhỏ', value: '12px' },
+  { label: 'Nhỏ', value: '14px' },
+  { label: 'Bình thường', value: '' },     // empty = unset (default 16px)
+  { label: 'Hơi lớn', value: '18px' },
+  { label: 'Lớn', value: '22px' },
+  { label: 'Rất lớn', value: '28px' },
+  { label: 'Khổng lồ', value: '36px' },
+];
+
 export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showCalloutMenu, setShowCalloutMenu] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
+  const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
+  const [customFontSize, setCustomFontSize] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -73,7 +89,13 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       }),
       TextStyle,
       FontFamily,
+      FontSize,
       Color.configure({ types: ['textStyle'] }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
+        defaultAlignment: 'left',
+      }),
       Youtube.configure({
         controls: true,
         nocookie: true,
@@ -365,6 +387,124 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
               </div>
             </>
           )}
+        </div>
+
+        {/* Font size dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFontSizeMenu(!showFontSizeMenu)}
+            className={btn(false)}
+            title="Cỡ chữ"
+          >
+            <Type className="w-4 h-4" />
+          </button>
+          {showFontSizeMenu && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowFontSizeMenu(false)} />
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-40 py-1 min-w-[180px]">
+                <div className="text-xs text-gray-500 px-3 py-1.5 border-b border-gray-100">Cỡ chữ</div>
+                {FONT_SIZES.map((s) => {
+                  const isActive = (editor.getAttributes('textStyle').fontSize || '') === s.value;
+                  return (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => {
+                        if (s.value) {
+                          editor.chain().focus().setFontSize(s.value).run();
+                        } else {
+                          editor.chain().focus().unsetFontSize().run();
+                        }
+                        setShowFontSizeMenu(false);
+                      }}
+                      className={`flex items-center justify-between w-full px-3 py-1.5 text-xs hover:bg-gray-50 text-left ${
+                        isActive ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      <span style={{ fontSize: s.value || '14px' }}>{s.label}</span>
+                      <span className="text-gray-400 text-[10px] font-mono">{s.value || 'mặc định'}</span>
+                    </button>
+                  );
+                })}
+                <div className="border-t border-gray-100 mt-1 pt-1 px-2 pb-2">
+                  <div className="text-[10px] text-gray-400 mb-1">Tùy chỉnh (px):</div>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      min="10"
+                      max="72"
+                      value={customFontSize}
+                      onChange={(e) => setCustomFontSize(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const n = parseInt(customFontSize, 10);
+                          if (n >= 10 && n <= 72) {
+                            editor.chain().focus().setFontSize(`${n}px`).run();
+                            setCustomFontSize('');
+                            setShowFontSizeMenu(false);
+                          }
+                        }
+                      }}
+                      placeholder="VD: 20"
+                      className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const n = parseInt(customFontSize, 10);
+                        if (n >= 10 && n <= 72) {
+                          editor.chain().focus().setFontSize(`${n}px`).run();
+                          setCustomFontSize('');
+                          setShowFontSizeMenu(false);
+                        }
+                      }}
+                      disabled={!customFontSize || parseInt(customFontSize, 10) < 10 || parseInt(customFontSize, 10) > 72}
+                      className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      OK
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Alignment buttons - group 4 buttons */}
+        <div className="flex items-center gap-0.5 border-l border-gray-300 pl-1 ml-0.5">
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+            className={btn(editor.isActive({ textAlign: 'left' }))}
+            title="Căn trái"
+          >
+            <AlignLeft className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+            className={btn(editor.isActive({ textAlign: 'center' }))}
+            title="Căn giữa"
+          >
+            <AlignCenter className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+            className={btn(editor.isActive({ textAlign: 'right' }))}
+            title="Căn phải"
+          >
+            <AlignRight className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+            className={btn(editor.isActive({ textAlign: 'justify' }))}
+            title="Căn đều"
+          >
+            <AlignJustify className="w-4 h-4" />
+          </button>
         </div>
 
         <button
