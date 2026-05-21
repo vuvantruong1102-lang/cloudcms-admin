@@ -23,10 +23,14 @@ export default function CategorySelect({ value, onChange }: Props) {
   async function load() {
     setLoading(true);
     try {
-      const data = await api.get<{ items: Category[] }>('/categories');
-      setCategories(data.items);
+      // Backend /api/categories trả về array trực tiếp (không wrap trong { items: [...] })
+      const data = await api.get<Category[] | { items: Category[] }>('/categories');
+      // Hỗ trợ cả 2 format để tương lai đổi backend không gãy
+      const list = Array.isArray(data) ? data : (data?.items ?? []);
+      setCategories(list);
     } catch (e) {
       console.error('Lỗi tải danh mục:', e);
+      setCategories([]); // đảm bảo không bị undefined
     } finally {
       setLoading(false);
     }
