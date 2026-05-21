@@ -18,7 +18,7 @@ import {
   Youtube as YoutubeIcon, Info, AlertTriangle, CheckCircle, Lightbulb,
   Table as TableIcon, Upload, Palette,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Type,
-  HelpCircle, FileCode, Plus, Minus, X,
+  HelpCircle, FileCode, Plus, Minus, X, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
@@ -608,19 +608,21 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       </div>
 
       <div className="bg-white border border-gray-200 rounded-md p-5">
-        {/* FAQ Action Bar - chỉ hiện khi con trỏ đang trong FAQ section */}
+        {/* FAQ Action Bar - chỉ hiện khi cursor đang trong FAQ section */}
         {editor.isActive('faqSection') && (
-          <div className="sticky top-2 z-20 mb-3 -mt-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+          <div className="sticky top-2 z-20 mb-3 -mt-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 flex-wrap">
             <HelpCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-            <span className="text-xs font-medium text-blue-700 mr-1">FAQ section:</span>
+            <span className="text-xs font-medium text-blue-700 mr-1">FAQ:</span>
+
             <button
               type="button"
               onClick={() => editor.chain().focus().addFaqItem().run()}
               className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-blue-300 text-blue-700 rounded hover:bg-blue-100"
               title="Thêm 1 câu hỏi vào cuối FAQ này"
             >
-              <Plus className="w-3 h-3" /> Thêm câu hỏi
+              <Plus className="w-3 h-3" /> Thêm câu
             </button>
+
             <button
               type="button"
               onClick={() => {
@@ -633,6 +635,27 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
             >
               <Minus className="w-3 h-3" /> Xóa câu này
             </button>
+
+            <div className="w-px h-4 bg-blue-200 mx-1" />
+
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().moveFaqSectionUp().run()}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+              title="Di chuyển FAQ section lên trên"
+            >
+              <ChevronUp className="w-3 h-3" /> Lên
+            </button>
+
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().moveFaqSectionDown().run()}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+              title="Di chuyển FAQ section xuống dưới"
+            >
+              <ChevronDown className="w-3 h-3" /> Xuống
+            </button>
+
             <button
               type="button"
               onClick={() => {
