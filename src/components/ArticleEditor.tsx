@@ -18,12 +18,14 @@ import {
   Youtube as YoutubeIcon, Info, AlertTriangle, CheckCircle, Lightbulb,
   Table as TableIcon, Upload, Palette,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Type,
+  HelpCircle,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import { ResizableImage } from '../lib/ResizableImage';
 import { Callout } from '../lib/CalloutExtension';
 import { FontSize } from '../lib/FontSizeExtension';
+import { FAQSection, FAQItem, FAQQuestion, FAQAnswer } from '../lib/FAQExtension';
 
 type Props = {
   initialHtml: string;
@@ -106,6 +108,10 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       TableRow,
       TableHeader,
       TableCell,
+      FAQSection,
+      FAQItem,
+      FAQQuestion,
+      FAQAnswer,
     ],
     content: initialHtml,
     onUpdate({ editor }) {
@@ -553,6 +559,15 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
 
         <button type="button" onClick={insertTable} className={btn(false)} title="Chèn bảng">
           <TableIcon className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().insertFaq().run()}
+          className={btn(false)}
+          title="Chèn FAQ (Câu hỏi thường gặp) - tốt cho SEO"
+        >
+          <HelpCircle className="w-4 h-4" />
         </button>
 
         <div className="w-px h-5 bg-gray-300 mx-1" />
