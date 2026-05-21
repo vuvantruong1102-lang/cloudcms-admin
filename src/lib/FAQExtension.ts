@@ -28,7 +28,7 @@ export const FAQItem = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['details', mergeAttributes(HTMLAttributes, { class: 'faq-item', open: 'true' }), 0];
+    return ['details', mergeAttributes(HTMLAttributes, { class: 'faq-item' }), 0];
   },
 });
 
