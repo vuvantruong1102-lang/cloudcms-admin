@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FileText, Image, Tag, Settings, LogOut, Cloud } from 'lucide-react';
+import { FileText, Image, Tag, LogOut, Cloud } from 'lucide-react';
 import { useAuth } from '../lib/auth-store';
 
 const navItems = [
@@ -14,14 +14,15 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      <aside className="w-60 bg-white border-r border-gray-200 flex flex-col">
+      {/* Sidebar: sticky theo viewport, h-screen để cố định khi body scroll */}
+      <aside className="w-60 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen flex-shrink-0">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
           <div className="w-8 h-8 rounded-md bg-blue-50 flex items-center justify-center">
             <Cloud className="w-4 h-4 text-blue-600" />
           </div>
           <span className="font-medium text-sm">CloudCMS</span>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -50,7 +51,9 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto">
+
+      {/* Main: KHÔNG overflow-auto → để body scroll → sticky toolbar hoạt động */}
+      <main className="flex-1 min-w-0">
         <Outlet />
       </main>
     </div>
