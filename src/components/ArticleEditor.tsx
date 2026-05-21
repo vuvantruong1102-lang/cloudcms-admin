@@ -18,7 +18,7 @@ import {
   Youtube as YoutubeIcon, Info, AlertTriangle, CheckCircle, Lightbulb,
   Table as TableIcon, Upload, Palette,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Type,
-  HelpCircle,
+  HelpCircle, FileCode,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
@@ -77,6 +77,8 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
   const [customFontSize, setCustomFontSize] = useState('');
+  const [showHtmlPasteDialog, setShowHtmlPasteDialog] = useState(false);
+  const [htmlPasteContent, setHtmlPasteContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -570,6 +572,18 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
           <HelpCircle className="w-4 h-4" />
         </button>
 
+        <button
+          type="button"
+          onClick={() => {
+            setHtmlPasteContent('');
+            setShowHtmlPasteDialog(true);
+          }}
+          className={btn(false)}
+          title="Dán HTML (cho bài viết soạn sẵn)"
+        >
+          <FileCode className="w-4 h-4" />
+        </button>
+
         <div className="w-px h-5 bg-gray-300 mx-1" />
 
         <button type="button" onClick={() => editor.chain().focus().undo().run()} className={btn(false)} title="Undo (Ctrl+Z)">
@@ -596,6 +610,94 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       <div className="bg-white border border-gray-200 rounded-md p-5">
         <EditorContent editor={editor} />
       </div>
+
+      {/* Modal: Paste HTML */}
+      {showHtmlPasteDialog && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowHtmlPasteDialog(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <FileCode className="w-5 h-5 text-blue-600" />
+                Dán HTML
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Dán HTML đã soạn sẵn (từ AI, file khác…). Editor sẽ tự động render thành rich content.
+                Hỗ trợ: <code className="bg-gray-100 px-1 rounded">&lt;p&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;h2&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;ul&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;strong&gt;</code>, FAQ, table, image…
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+              <textarea
+                autoFocus
+                value={htmlPasteContent}
+                onChange={(e) => setHtmlPasteContent(e.target.value)}
+                placeholder={`<p>Đây là đoạn văn...</p>
+<h2>Tiêu đề H2</h2>
+<p>Nội dung với <strong>chữ đậm</strong>...</p>`}
+                className="w-full h-[400px] px-3 py-2 border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:border-blue-500"
+              />
+              <div className="text-xs text-gray-400 mt-2">
+                {htmlPasteContent.length.toLocaleString()} ký tự
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-600 flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paste-mode"
+                    defaultChecked
+                    id="paste-replace"
+                  />
+                  Thay thế nội dung hiện tại
+                </label>
+                <label className="text-xs text-gray-600 flex items-center gap-1 cursor-pointer ml-3">
+                  <input
+                    type="radio"
+                    name="paste-mode"
+                    id="paste-append"
+                  />
+                  Chèn vào vị trí con trỏ
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowHtmlPasteDialog(false)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!htmlPasteContent.trim()) return;
+                    const replace = (document.getElementById('paste-replace') as HTMLInputElement)?.checked;
+                    if (replace) {
+                      editor.commands.setContent(htmlPasteContent, true);
+                    } else {
+                      editor.chain().focus().insertContent(htmlPasteContent).run();
+                    }
+                    setShowHtmlPasteDialog(false);
+                    setHtmlPasteContent('');
+                  }}
+                  disabled={!htmlPasteContent.trim()}
+                  className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Chèn HTML
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
