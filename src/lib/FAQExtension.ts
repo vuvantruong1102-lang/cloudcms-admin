@@ -1,27 +1,20 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     faq: {
+      /** Tạo FAQ section mới với 1 câu hỏi rỗng */
       insertFaq: () => ReturnType;
+      /** Thêm 1 câu hỏi vào FAQ section gần nhất (con trỏ đang ở trong) */
+      addFaqItem: () => ReturnType;
+      /** Xóa FAQ item đang chứa con trỏ */
+      removeFaqItem: () => ReturnType;
+      /** Xóa toàn bộ FAQ section đang chứa con trỏ */
+      removeFaqSection: () => ReturnType;
     };
   }
 }
-
-/**
- * FAQ extension cho Tiptap
- *
- * HTML output:
- * <div class="faq-section" data-faq>
- *   <details class="faq-item">
- *     <summary class="faq-question">Câu hỏi?</summary>
- *     <div class="faq-answer">Câu trả lời...</div>
- *   </details>
- *   ...
- * </div>
- *
- * Frontend tự parse từ HTML này để generate FAQPage schema JSON-LD.
- */
 
 // FAQ Item (single Q+A)
 export const FAQItem = Node.create({
@@ -93,6 +86,25 @@ export const FAQSection = Node.create({
   },
 
   addCommands() {
+    const makeFaqItem = (q = 'Câu hỏi của bạn?', a = 'Câu trả lời chi tiết...') => ({
+      type: 'faqItem',
+      content: [
+        {
+          type: 'faqQuestion',
+          content: [{ type: 'text', text: q }],
+        },
+        {
+          type: 'faqAnswer',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: a }],
+            },
+          ],
+        },
+      ],
+    });
+
     return {
       insertFaq:
         () =>
@@ -100,45 +112,84 @@ export const FAQSection = Node.create({
           return commands.insertContent({
             type: 'faqSection',
             attrs: { 'data-faq': 'true' },
-            content: [
-              {
-                type: 'faqItem',
-                content: [
-                  {
-                    type: 'faqQuestion',
-                    content: [{ type: 'text', text: 'Câu hỏi của bạn?' }],
-                  },
-                  {
-                    type: 'faqAnswer',
-                    content: [
-                      {
-                        type: 'paragraph',
-                        content: [{ type: 'text', text: 'Câu trả lời chi tiết...' }],
-                      },
-                    ],
-                  },
-                ],
-              },
-              {
-                type: 'faqItem',
-                content: [
-                  {
-                    type: 'faqQuestion',
-                    content: [{ type: 'text', text: 'Câu hỏi tiếp theo?' }],
-                  },
-                  {
-                    type: 'faqAnswer',
-                    content: [
-                      {
-                        type: 'paragraph',
-                        content: [{ type: 'text', text: 'Câu trả lời...' }],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
+            content: [makeFaqItem()],
           });
+        },
+
+      addFaqItem:
+        () =>
+        ({ state, dispatch, tr }) => {
+          const { $from } = state.selection;
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth);
+            if (node.type.name === 'faqSection') {
+              const sectionStart = $from.before(depth);
+              const sectionEnd = sectionStart + node.nodeSize;
+              const insertPos = sectionEnd - 1;
+              const itemNode = state.schema.nodeFromJSON(makeFaqItem());
+              if (dispatch) {
+                tr.insert(insertPos, itemNode);
+                try {
+                  const newPos = insertPos + 2;
+                  tr.setSelection(TextSelection.near(tr.doc.resolve(newPos)));
+                } catch (e) { /* ignore */ }
+                dispatch(tr);
+              }
+              return true;
+            }
+          }
+          return false;
+        },
+
+      removeFaqItem:
+        () =>
+        ({ state, dispatch, tr }) => {
+          const { $from } = state.selection;
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth);
+            if (node.type.name === 'faqItem') {
+              const itemStart = $from.before(depth);
+              const itemEnd = itemStart + node.nodeSize;
+
+              const parentDepth = depth - 1;
+              const parentNode = parentDepth >= 0 ? $from.node(parentDepth) : null;
+              if (parentNode?.type.name === 'faqSection' && parentNode.childCount === 1) {
+                const sectionStart = $from.before(parentDepth);
+                const sectionEnd = sectionStart + parentNode.nodeSize;
+                if (dispatch) {
+                  tr.delete(sectionStart, sectionEnd);
+                  dispatch(tr);
+                }
+                return true;
+              }
+
+              if (dispatch) {
+                tr.delete(itemStart, itemEnd);
+                dispatch(tr);
+              }
+              return true;
+            }
+          }
+          return false;
+        },
+
+      removeFaqSection:
+        () =>
+        ({ state, dispatch, tr }) => {
+          const { $from } = state.selection;
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth);
+            if (node.type.name === 'faqSection') {
+              const sectionStart = $from.before(depth);
+              const sectionEnd = sectionStart + node.nodeSize;
+              if (dispatch) {
+                tr.delete(sectionStart, sectionEnd);
+                dispatch(tr);
+              }
+              return true;
+            }
+          }
+          return false;
         },
     };
   },
