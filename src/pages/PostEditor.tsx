@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, Rocket, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Save, Rocket, ArrowLeft, RefreshCw, Archive, Trash2, ArchiveRestore } from 'lucide-react';
 import { api } from '../lib/api';
 import { slugify } from '../lib/slugify';
 import ArticleEditor from '../components/ArticleEditor';
@@ -18,6 +18,7 @@ type Post = {
   status: 'draft' | 'published' | 'scheduled' | 'archived';
   robots_index: number; robots_follow: number;
   category_id: string | null;
+  title_align: 'left' | 'center' | 'right';
 };
 
 const empty: Post = {
@@ -27,6 +28,7 @@ const empty: Post = {
   og_title: '', og_description: '', og_image_url: '',
   featured_image_id: null, featured_image_alt: '',
   status: 'draft', robots_index: 1, robots_follow: 1, category_id: null,
+  title_align: 'left',
 };
 
 export default function PostEditor() {
@@ -129,6 +131,39 @@ export default function PostEditor() {
     }
   }
 
+  async function archivePost() {
+    const isArchived = post.status === 'archived';
+    const msg = isArchived
+      ? `Khôi phục bài "${post.title}" về trạng thái Nháp?`
+      : `Lưu trữ bài "${post.title}"?\n\nBài sẽ ẩn khỏi website, nhưng vẫn giữ lại để khôi phục sau.`;
+
+    if (!window.confirm(msg)) return;
+
+    const newStatus = isArchived ? 'draft' : 'archived';
+    await save(newStatus);
+    alert(isArchived ? 'Đã khôi phục bài.' : 'Đã lưu trữ. Bài đã ẩn khỏi website.');
+  }
+
+  async function deletePost() {
+    if (!window.confirm(`⚠️ XÓA VĨNH VIỄN bài "${post.title}"?\n\nHành động này KHÔNG THỂ HOÀN TÁC.\n\nNếu chỉ muốn ẩn, hãy dùng "Lưu trữ" thay vì xóa.`)) return;
+
+    const confirm2 = window.prompt(`Để xác nhận xóa, gõ chữ "XOA" (viết hoa, không dấu) rồi bấm OK:`);
+    if (confirm2 !== 'XOA') {
+      alert('Đã hủy xóa.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.delete(`/posts/${id}`);
+      alert('Đã xóa bài viết.');
+      nav('/posts', { replace: true });
+    } catch (e: any) {
+      alert('Lỗi: ' + e.message);
+      setSaving(false);
+    }
+  }
+
   // Autosave: khi không phải bài mới, debounce 3s sau khi edit
   useEffect(() => {
     if (isNew || !post.title) return;
@@ -172,6 +207,32 @@ export default function PostEditor() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Nút Archive + Delete - chỉ hiện khi đã có bài (không phải bài mới) */}
+          {!isNew && (
+            <>
+              <button
+                onClick={archivePost}
+                disabled={saving}
+                className="text-sm px-2.5 py-1.5 border border-gray-300 rounded-md hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 disabled:opacity-50"
+                title={post.status === 'archived' ? 'Khôi phục bài' : 'Lưu trữ (ẩn khỏi web)'}
+              >
+                {post.status === 'archived'
+                  ? <><ArchiveRestore className="w-3.5 h-3.5 inline mr-1" /> Khôi phục</>
+                  : <><Archive className="w-3.5 h-3.5 inline mr-1" /> Lưu trữ</>
+                }
+              </button>
+              <button
+                onClick={deletePost}
+                disabled={saving}
+                className="text-sm px-2.5 py-1.5 border border-gray-300 rounded-md hover:bg-red-50 hover:border-red-300 hover:text-red-700 disabled:opacity-50"
+                title="Xóa vĩnh viễn"
+              >
+                <Trash2 className="w-3.5 h-3.5 inline mr-1" /> Xóa
+              </button>
+              <div className="w-px h-5 bg-gray-300 mx-1" />
+            </>
+          )}
+
           <button
             onClick={() => save('draft')}
             disabled={saving}
@@ -282,6 +343,35 @@ export default function PostEditor() {
             value={post.category_id}
             onChange={(id) => update('category_id', id)}
           />
+
+          {/* Title alignment */}
+          <div className="bg-white border border-gray-200 rounded-lg p-3">
+            <div className="text-xs font-medium text-gray-700 mb-2">Căn lề tiêu đề bài viết</div>
+            <div className="grid grid-cols-3 gap-1">
+              {([
+                { value: 'left', label: 'Trái', icon: '⬅' },
+                { value: 'center', label: 'Giữa', icon: '⬆' },
+                { value: 'right', label: 'Phải', icon: '➡' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => update('title_align', opt.value)}
+                  className={`flex flex-col items-center gap-1 py-2 px-2 rounded border text-xs ${
+                    post.title_align === opt.value
+                      ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
+                      : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base leading-none">{opt.icon}</span>
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-gray-400 mt-2">
+              Áp dụng cho tiêu đề H1 hiển thị trên trang bài viết.
+            </div>
+          </div>
 
           {/* SEO Panel */}
           <SeoPanel

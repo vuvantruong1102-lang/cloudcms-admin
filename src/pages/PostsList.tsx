@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Archive, Trash2, ArchiveRestore, Eye } from 'lucide-react';
 import { api } from '../lib/api';
 
 type PostRow = {
@@ -24,6 +24,7 @@ export default function PostsList() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string>(''); // id của bài đang xử lý
 
   async function load() {
     setLoading(true);
@@ -37,8 +38,50 @@ export default function PostsList() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [status]);
 
+  async function archivePost(post: PostRow) {
+    const isArchived = post.status === 'archived';
+    const newStatus = isArchived ? 'draft' : 'archived';
+    const msg = isArchived
+      ? `Khôi phục "${post.title}" về trạng thái Nháp?`
+      : `Lưu trữ "${post.title}"?\n\nBài sẽ ẩn khỏi website, nhưng vẫn giữ lại để khôi phục sau.`;
+
+    if (!window.confirm(msg)) return;
+
+    setActionLoading(post.id);
+    try {
+      await api.put(`/posts/${post.id}`, { status: newStatus });
+      await load();
+    } catch (e: any) {
+      alert('Lỗi: ' + e.message);
+    } finally {
+      setActionLoading('');
+    }
+  }
+
+  async function deletePost(post: PostRow) {
+    const msg = `⚠️ XÓA VĨNH VIỄN bài "${post.title}"?\n\nHành động này KHÔNG THỂ HOÀN TÁC.\n\nNếu chỉ muốn ẩn, hãy dùng "Lưu trữ" thay vì xóa.`;
+    if (!window.confirm(msg)) return;
+
+    // Confirm 2 lần để chắc
+    const confirm2 = window.prompt(`Để xác nhận xóa, gõ chữ "XOA" (viết hoa, không dấu) rồi bấm OK:`);
+    if (confirm2 !== 'XOA') {
+      alert('Đã hủy xóa.');
+      return;
+    }
+
+    setActionLoading(post.id);
+    try {
+      await api.delete(`/posts/${post.id}`);
+      await load();
+    } catch (e: any) {
+      alert('Lỗi: ' + e.message);
+    } finally {
+      setActionLoading('');
+    }
+  }
+
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="p-6 max-w-7xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">Bài viết</h1>
         <Link to="/posts/new" className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
@@ -77,8 +120,9 @@ export default function PostsList() {
               <tr className="text-left">
                 <th className="px-4 py-2 font-medium text-gray-600">Tiêu đề</th>
                 <th className="px-4 py-2 font-medium text-gray-600 w-28">Trạng thái</th>
-                <th className="px-4 py-2 font-medium text-gray-600 w-24">SEO</th>
-                <th className="px-4 py-2 font-medium text-gray-600 w-36">Cập nhật</th>
+                <th className="px-4 py-2 font-medium text-gray-600 w-20">SEO</th>
+                <th className="px-4 py-2 font-medium text-gray-600 w-32">Cập nhật</th>
+                <th className="px-4 py-2 font-medium text-gray-600 w-32 text-right">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -108,11 +152,61 @@ export default function PostsList() {
                   <td className="px-4 py-3 text-xs text-gray-500">
                     {new Date(p.updated_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Xem bài đã publish */}
+                      {p.status === 'published' && (
+                        <a
+                          href={`https://yokool.vn/news/${p.slug}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="Xem trên yokool.vn"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </a>
+                      )}
+
+                      {/* Lưu trữ / Khôi phục */}
+                      <button
+                        type="button"
+                        onClick={() => archivePost(p)}
+                        disabled={actionLoading === p.id}
+                        className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded disabled:opacity-50"
+                        title={p.status === 'archived' ? 'Khôi phục về Nháp' : 'Lưu trữ (ẩn khỏi web)'}
+                      >
+                        {p.status === 'archived'
+                          ? <ArchiveRestore className="w-4 h-4" />
+                          : <Archive className="w-4 h-4" />
+                        }
+                      </button>
+
+                      {/* Xóa vĩnh viễn */}
+                      <button
+                        type="button"
+                        onClick={() => deletePost(p)}
+                        disabled={actionLoading === p.id}
+                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                        title="Xóa vĩnh viễn"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="mt-3 text-xs text-gray-500 flex items-center gap-4 flex-wrap">
+        <span className="flex items-center gap-1">
+          <Archive className="w-3 h-3" /> Lưu trữ: ẩn khỏi website, khôi phục được
+        </span>
+        <span className="flex items-center gap-1">
+          <Trash2 className="w-3 h-3" /> Xóa: vĩnh viễn, không khôi phục được
+        </span>
       </div>
     </div>
   );
