@@ -94,7 +94,15 @@ function parseFAQsFromHtml(html: string): FAQEntry[] {
       const paragraphs = aEl.querySelectorAll('p');
       if (paragraphs.length > 0) {
         answer = Array.from(paragraphs)
-          .map((p) => p.textContent?.trim() || '')
+          .map((p) => {
+            // Clone để không modify original DOM
+            const clone = p.cloneNode(true) as HTMLElement;
+            // Thay <br> bằng newline trước khi lấy textContent
+            clone.querySelectorAll('br').forEach((br) => {
+              br.replaceWith('\n');
+            });
+            return clone.textContent?.trim() || '';
+          })
           .filter(Boolean)
           .join('\n\n');
       } else {
@@ -704,24 +712,31 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
           const newFaqHtml = renderFAQsToHtml(faqs);
           const currentHtml = editor.getHTML();
 
-          // Tìm FAQ section hiện tại trong HTML
-          const faqRegex = /<div[^>]*class="[^"]*faq-section[^"]*"[^>]*>[\s\S]*?<\/div>\s*$|<div[^>]*class="[^"]*faq-section[^"]*"[^>]*>[\s\S]*?(?=<\/?(?:p|h[1-6]|div|ul|ol|table|blockquote|figure|details))/i;
-          const simpleRegex = /<div[^>]*class="[^"]*faq-section[^"]*"[^>]*>[\s\S]*?<\/div>/i;
+          // Dùng DOMParser để safely find & replace FAQ sections (handle nested divs)
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(`<body>${currentHtml}</body>`, 'text/html');
+          const existingFaqs = doc.querySelectorAll('div.faq-section');
 
-          if (simpleRegex.test(currentHtml)) {
-            // Replace FAQ hiện có
-            if (newFaqHtml) {
-              const updated = currentHtml.replace(simpleRegex, newFaqHtml);
-              editor.commands.setContent(updated, false);
-            } else {
-              // FAQ rỗng → xóa hoàn toàn
-              const updated = currentHtml.replace(simpleRegex, '');
-              editor.commands.setContent(updated, false);
-            }
+          if (existingFaqs.length > 0) {
+            // Có FAQ section(s) - xóa tất cả, insert mới (nếu có)
+            existingFaqs.forEach((node, idx) => {
+              if (idx === 0 && newFaqHtml) {
+                // Replace cái đầu tiên bằng FAQ mới
+                const wrapper = doc.createElement('div');
+                wrapper.innerHTML = newFaqHtml;
+                const newNode = wrapper.firstChild;
+                if (newNode) node.replaceWith(newNode);
+              } else {
+                // Xóa các FAQ thừa (hoặc xóa hoàn toàn nếu không có nội dung mới)
+                node.remove();
+              }
+            });
+            editor.commands.setContent(doc.body.innerHTML, false);
           } else if (newFaqHtml) {
-            // Insert FAQ mới ở vị trí cursor
+            // Chưa có FAQ → insert ở cursor
             editor.chain().focus().insertContent(newFaqHtml).run();
           }
+          // Nếu cả currentHtml và newFaqHtml đều không có FAQ → không làm gì
         }}
       />
 

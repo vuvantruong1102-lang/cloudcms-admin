@@ -206,6 +206,19 @@ export default function FAQManager({ open, initialFaqs, onClose, onSave }: Props
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => {
+                if (window.confirm('Xóa toàn bộ FAQ section khỏi bài viết?')) {
+                  onSave([]);
+                  onClose();
+                }
+              }}
+              className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50"
+              title="Xóa toàn bộ FAQ section khỏi bài viết"
+            >
+              Xóa FAQ
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
             >
