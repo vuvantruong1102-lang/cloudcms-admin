@@ -4,24 +4,21 @@ import { TextSelection } from '@tiptap/pm/state';
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     faq: {
-      /** Tạo FAQ section mới với 1 câu hỏi rỗng */
       insertFaq: () => ReturnType;
-      /** Thêm 1 câu hỏi vào FAQ section gần nhất (con trỏ đang ở trong) */
       addFaqItem: () => ReturnType;
-      /** Xóa FAQ item đang chứa con trỏ */
       removeFaqItem: () => ReturnType;
-      /** Xóa toàn bộ FAQ section đang chứa con trỏ */
       removeFaqSection: () => ReturnType;
+      moveFaqSectionUp: () => ReturnType;
+      moveFaqSectionDown: () => ReturnType;
     };
   }
 }
 
-// FAQ Item (single Q+A)
+// FAQ Item
 export const FAQItem = Node.create({
   name: 'faqItem',
   group: 'block',
   content: 'faqQuestion faqAnswer',
-  defining: true,
 
   parseHTML() {
     return [{ tag: 'details.faq-item' }];
@@ -35,7 +32,6 @@ export const FAQItem = Node.create({
 export const FAQQuestion = Node.create({
   name: 'faqQuestion',
   content: 'inline*',
-  defining: true,
 
   parseHTML() {
     return [{ tag: 'summary.faq-question' }];
@@ -49,7 +45,6 @@ export const FAQQuestion = Node.create({
 export const FAQAnswer = Node.create({
   name: 'faqAnswer',
   content: 'block+',
-  defining: true,
 
   parseHTML() {
     return [{ tag: 'div.faq-answer' }];
@@ -60,12 +55,11 @@ export const FAQAnswer = Node.create({
   },
 });
 
-// Wrapper section chứa tất cả FAQ items
 export const FAQSection = Node.create({
   name: 'faqSection',
   group: 'block',
   content: 'faqItem+',
-  defining: true,
+  draggable: true,
 
   addAttributes() {
     return {
@@ -89,18 +83,10 @@ export const FAQSection = Node.create({
     const makeFaqItem = (q = 'Câu hỏi của bạn?', a = 'Câu trả lời chi tiết...') => ({
       type: 'faqItem',
       content: [
-        {
-          type: 'faqQuestion',
-          content: [{ type: 'text', text: q }],
-        },
+        { type: 'faqQuestion', content: [{ type: 'text', text: q }] },
         {
           type: 'faqAnswer',
-          content: [
-            {
-              type: 'paragraph',
-              content: [{ type: 'text', text: a }],
-            },
-          ],
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: a }] }],
         },
       ],
     });
@@ -130,8 +116,7 @@ export const FAQSection = Node.create({
               if (dispatch) {
                 tr.insert(insertPos, itemNode);
                 try {
-                  const newPos = insertPos + 2;
-                  tr.setSelection(TextSelection.near(tr.doc.resolve(newPos)));
+                  tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 2)));
                 } catch (e) { /* ignore */ }
                 dispatch(tr);
               }
@@ -184,6 +169,76 @@ export const FAQSection = Node.create({
               const sectionEnd = sectionStart + node.nodeSize;
               if (dispatch) {
                 tr.delete(sectionStart, sectionEnd);
+                dispatch(tr);
+              }
+              return true;
+            }
+          }
+          return false;
+        },
+
+      moveFaqSectionUp:
+        () =>
+        ({ state, dispatch, tr }) => {
+          const { $from } = state.selection;
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth);
+            if (node.type.name === 'faqSection') {
+              const sectionStart = $from.before(depth);
+              const sectionEnd = sectionStart + node.nodeSize;
+
+              if (sectionStart === 0) return false;
+              const $before = state.doc.resolve(sectionStart);
+              if ($before.depth === 0 && $before.index() === 0) return false;
+
+              // Lấy node anh chị trước
+              const parent = $before.parent;
+              const indexInParent = $before.index();
+              if (indexInParent === 0) return false;
+
+              const prevNode = parent.child(indexInParent - 1);
+              const prevStart = sectionStart - prevNode.nodeSize;
+
+              const faqJson = node.toJSON();
+
+              if (dispatch) {
+                // Xóa FAQ trước, rồi insert vào trước prev
+                tr.delete(sectionStart, sectionEnd);
+                tr.insert(prevStart, state.schema.nodeFromJSON(faqJson));
+                tr.setSelection(TextSelection.near(tr.doc.resolve(prevStart + 1)));
+                dispatch(tr);
+              }
+              return true;
+            }
+          }
+          return false;
+        },
+
+      moveFaqSectionDown:
+        () =>
+        ({ state, dispatch, tr }) => {
+          const { $from } = state.selection;
+          for (let depth = $from.depth; depth >= 0; depth--) {
+            const node = $from.node(depth);
+            if (node.type.name === 'faqSection') {
+              const sectionStart = $from.before(depth);
+              const sectionEnd = sectionStart + node.nodeSize;
+
+              const $before = state.doc.resolve(sectionStart);
+              const parent = $before.parent;
+              const indexInParent = $before.index();
+              if (indexInParent >= parent.childCount - 1) return false;
+
+              const nextNode = parent.child(indexInParent + 1);
+              const newInsertPos = sectionStart + nextNode.nodeSize;
+
+              const faqJson = node.toJSON();
+
+              if (dispatch) {
+                tr.delete(sectionStart, sectionEnd);
+                tr.insert(newInsertPos - node.nodeSize, state.schema.nodeFromJSON(faqJson));
+                const finalPos = newInsertPos - node.nodeSize + 1;
+                tr.setSelection(TextSelection.near(tr.doc.resolve(finalPos)));
                 dispatch(tr);
               }
               return true;
