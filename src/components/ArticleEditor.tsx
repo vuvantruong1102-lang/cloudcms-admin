@@ -18,7 +18,7 @@ import {
   Youtube as YoutubeIcon, Info, AlertTriangle, CheckCircle, Lightbulb,
   Table as TableIcon, Upload, Palette,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Type,
-  HelpCircle, FileCode, Plus, Minus, X, ChevronUp, ChevronDown,
+  HelpCircle, FileCode,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
@@ -26,6 +26,7 @@ import { ResizableImage } from '../lib/ResizableImage';
 import { Callout } from '../lib/CalloutExtension';
 import { FontSize } from '../lib/FontSizeExtension';
 import { FAQSection, FAQItem, FAQQuestion, FAQAnswer } from '../lib/FAQExtension';
+import FAQManager, { type FAQEntry } from './FAQManager';
 
 type Props = {
   initialHtml: string;
@@ -70,6 +71,80 @@ const FONT_SIZES = [
   { label: 'Khổng lồ', value: '36px' },
 ];
 
+// ============================================================
+// FAQ Helper: parse HTML editor → FAQEntry[]
+// Tìm div.faq-section trong content, extract Q+A từ mỗi details.faq-item
+// ============================================================
+function parseFAQsFromHtml(html: string): FAQEntry[] {
+  if (!html || !html.includes('faq-item')) return [];
+
+  // Dùng DOMParser của browser để parse an toàn
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const items = doc.querySelectorAll('details.faq-item');
+
+  const faqs: FAQEntry[] = [];
+  items.forEach((item, idx) => {
+    const qEl = item.querySelector('summary.faq-question');
+    const aEl = item.querySelector('div.faq-answer');
+    const question = qEl?.textContent?.trim() || '';
+    // Lấy text answer giữ nguyên xuống dòng (chuyển <p> thành \n\n, <br> thành \n)
+    let answer = '';
+    if (aEl) {
+      const paragraphs = aEl.querySelectorAll('p');
+      if (paragraphs.length > 0) {
+        answer = Array.from(paragraphs)
+          .map((p) => p.textContent?.trim() || '')
+          .filter(Boolean)
+          .join('\n\n');
+      } else {
+        answer = aEl.textContent?.trim() || '';
+      }
+    }
+    if (question || answer) {
+      faqs.push({ id: `faq_existing_${idx}`, question, answer });
+    }
+  });
+
+  return faqs;
+}
+
+// ============================================================
+// FAQ Helper: render FAQEntry[] → HTML string
+// Output match đúng format mà FAQ Extension expect
+// ============================================================
+function renderFAQsToHtml(faqs: FAQEntry[]): string {
+  if (faqs.length === 0) return '';
+
+  const items = faqs
+    .map((f) => {
+      // Escape HTML để tránh XSS
+      const q = escapeHtml(f.question);
+      // Answer: chia thành paragraphs theo dòng trống (\n\n)
+      const paragraphs = f.answer
+        .split(/\n\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        // Trong mỗi paragraph, convert single \n thành <br>
+        .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+
+      return `<details class="faq-item"><summary class="faq-question">${q}</summary><div class="faq-answer">${paragraphs}</div></details>`;
+    })
+    .join('');
+
+  return `<div class="faq-section" data-faq="true">${items}</div>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -79,6 +154,8 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
   const [customFontSize, setCustomFontSize] = useState('');
   const [showHtmlPasteDialog, setShowHtmlPasteDialog] = useState(false);
   const [htmlPasteContent, setHtmlPasteContent] = useState('');
+  const [showFAQModal, setShowFAQModal] = useState(false);
+  const [currentFAQs, setCurrentFAQs] = useState<FAQEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -565,9 +642,15 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
 
         <button
           type="button"
-          onClick={() => editor.chain().focus().insertFaq().run()}
-          className={btn(false)}
-          title="Chèn FAQ (Câu hỏi thường gặp) - tốt cho SEO"
+          onClick={() => {
+            // Parse FAQ section hiện có trong content (nếu có)
+            const html = editor.getHTML();
+            const existing = parseFAQsFromHtml(html);
+            setCurrentFAQs(existing);
+            setShowFAQModal(true);
+          }}
+          className={btn(editor.isActive('faqSection'))}
+          title="Quản lý FAQ (Câu hỏi thường gặp) - tốt cho SEO"
         >
           <HelpCircle className="w-4 h-4" />
         </button>
@@ -608,71 +691,39 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       </div>
 
       <div className="bg-white border border-gray-200 rounded-md p-5">
-        {/* FAQ Action Bar - chỉ hiện khi cursor đang trong FAQ section */}
-        {editor.isActive('faqSection') && (
-          <div className="sticky top-2 z-20 mb-3 -mt-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-3 py-2 flex-wrap">
-            <HelpCircle className="w-4 h-4 text-blue-600 flex-shrink-0" />
-            <span className="text-xs font-medium text-blue-700 mr-1">FAQ:</span>
-
-            <button
-              type="button"
-              onClick={() => editor.chain().focus().addFaqItem().run()}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-blue-300 text-blue-700 rounded hover:bg-blue-100"
-              title="Thêm 1 câu hỏi vào cuối FAQ này"
-            >
-              <Plus className="w-3 h-3" /> Thêm câu
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Xóa câu hỏi hiện tại?')) {
-                  editor.chain().focus().removeFaqItem().run();
-                }
-              }}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-orange-300 text-orange-700 rounded hover:bg-orange-50"
-              title="Xóa câu hỏi con trỏ đang ở trong"
-            >
-              <Minus className="w-3 h-3" /> Xóa câu này
-            </button>
-
-            <div className="w-px h-4 bg-blue-200 mx-1" />
-
-            <button
-              type="button"
-              onClick={() => editor.chain().focus().moveFaqSectionUp().run()}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
-              title="Di chuyển FAQ section lên trên"
-            >
-              <ChevronUp className="w-3 h-3" /> Lên
-            </button>
-
-            <button
-              type="button"
-              onClick={() => editor.chain().focus().moveFaqSectionDown().run()}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
-              title="Di chuyển FAQ section xuống dưới"
-            >
-              <ChevronDown className="w-3 h-3" /> Xuống
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Xóa toàn bộ FAQ section này?')) {
-                  editor.chain().focus().removeFaqSection().run();
-                }
-              }}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs bg-white border border-red-300 text-red-700 rounded hover:bg-red-50 ml-auto"
-              title="Xóa toàn bộ FAQ section"
-            >
-              <X className="w-3 h-3" /> Xóa FAQ
-            </button>
-          </div>
-        )}
-
         <EditorContent editor={editor} />
       </div>
+
+      {/* Modal: FAQ Manager */}
+      <FAQManager
+        open={showFAQModal}
+        initialFaqs={currentFAQs}
+        onClose={() => setShowFAQModal(false)}
+        onSave={(faqs) => {
+          // Render thành HTML
+          const newFaqHtml = renderFAQsToHtml(faqs);
+          const currentHtml = editor.getHTML();
+
+          // Tìm FAQ section hiện tại trong HTML
+          const faqRegex = /<div[^>]*class="[^"]*faq-section[^"]*"[^>]*>[\s\S]*?<\/div>\s*$|<div[^>]*class="[^"]*faq-section[^"]*"[^>]*>[\s\S]*?(?=<\/?(?:p|h[1-6]|div|ul|ol|table|blockquote|figure|details))/i;
+          const simpleRegex = /<div[^>]*class="[^"]*faq-section[^"]*"[^>]*>[\s\S]*?<\/div>/i;
+
+          if (simpleRegex.test(currentHtml)) {
+            // Replace FAQ hiện có
+            if (newFaqHtml) {
+              const updated = currentHtml.replace(simpleRegex, newFaqHtml);
+              editor.commands.setContent(updated, false);
+            } else {
+              // FAQ rỗng → xóa hoàn toàn
+              const updated = currentHtml.replace(simpleRegex, '');
+              editor.commands.setContent(updated, false);
+            }
+          } else if (newFaqHtml) {
+            // Insert FAQ mới ở vị trí cursor
+            editor.chain().focus().insertContent(newFaqHtml).run();
+          }
+        }}
+      />
 
       {/* Modal: Paste HTML */}
       {showHtmlPasteDialog && (
