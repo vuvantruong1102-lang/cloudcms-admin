@@ -59,7 +59,7 @@ export const FAQSection = Node.create({
   name: 'faqSection',
   group: 'block',
   content: 'faqItem+',
-  draggable: true,
+  // Bỏ draggable - dùng modal để reorder, copy/paste thoải mái hơn
 
   addAttributes() {
     return {
