@@ -5,6 +5,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
+import Color from '@tiptap/extension-color';
 import Youtube from '@tiptap/extension-youtube';
 import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
@@ -14,7 +15,7 @@ import {
   Bold, Italic, Underline as UIcon, Heading1, Heading2, Heading3,
   List, ListOrdered, Quote, Code, Link2, Image as ImageIcon, Sparkles, Redo, Undo,
   Youtube as YoutubeIcon, Info, AlertTriangle, CheckCircle, Lightbulb,
-  Table as TableIcon, Upload,
+  Table as TableIcon, Upload, Palette,
 } from 'lucide-react';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
@@ -35,10 +36,29 @@ const FONTS = [
   { label: 'Merriweather', value: 'Merriweather, serif' },
 ];
 
+// Color palette: 14 màu preset thường dùng + 1 ô tự chọn
+const COLORS = [
+  { label: 'Mặc định', value: '' }, // empty = unsetColor
+  { label: 'Đen', value: '#1a1a1a' },
+  { label: 'Xám đậm', value: '#4b5563' },
+  { label: 'Xám nhạt', value: '#9ca3af' },
+  { label: 'Đỏ thương hiệu', value: '#DC143B' },
+  { label: 'Đỏ', value: '#dc2626' },
+  { label: 'Cam', value: '#ea580c' },
+  { label: 'Vàng', value: '#ca8a04' },
+  { label: 'Xanh lá', value: '#16a34a' },
+  { label: 'Xanh ngọc', value: '#0891b2' },
+  { label: 'Xanh dương', value: '#2563eb' },
+  { label: 'Tím', value: '#7c3aed' },
+  { label: 'Hồng', value: '#db2777' },
+  { label: 'Nâu', value: '#92400e' },
+];
+
 export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showCalloutMenu, setShowCalloutMenu] = useState(false);
+  const [showColorMenu, setShowColorMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -53,6 +73,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
       }),
       TextStyle,
       FontFamily,
+      Color.configure({ types: ['textStyle'] }),
       Youtube.configure({
         controls: true,
         nocookie: true,
@@ -273,6 +294,73 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
                 </button>
                 <button type="button" onClick={() => setCallout('tip')} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-gray-50 text-left">
                   <Lightbulb className="w-3.5 h-3.5 text-purple-600" /> Mẹo
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Color picker dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowColorMenu(!showColorMenu)}
+            className={btn(false)}
+            title="Màu chữ"
+          >
+            <Palette
+              className="w-4 h-4"
+              style={{ color: editor.getAttributes('textStyle').color || '#4b5563' }}
+            />
+          </button>
+          {showColorMenu && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowColorMenu(false)} />
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-40 p-2 w-[200px]">
+                <div className="text-xs text-gray-500 mb-1.5 px-1">Màu chữ</div>
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c.value || 'default'}
+                      type="button"
+                      onClick={() => {
+                        if (c.value) {
+                          editor.chain().focus().setColor(c.value).run();
+                        } else {
+                          editor.chain().focus().unsetColor().run();
+                        }
+                        setShowColorMenu(false);
+                      }}
+                      className="w-6 h-6 rounded border border-gray-200 hover:scale-110 transition-transform relative flex items-center justify-center"
+                      style={{ backgroundColor: c.value || '#fff' }}
+                      title={c.label}
+                    >
+                      {!c.value && (
+                        <span className="text-[10px] text-gray-400">×</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 px-1 py-1 text-xs text-gray-600 cursor-pointer hover:bg-gray-50 rounded">
+                  <input
+                    type="color"
+                    onChange={(e) => {
+                      editor.chain().focus().setColor(e.target.value).run();
+                    }}
+                    value={editor.getAttributes('textStyle').color || '#000000'}
+                    className="w-5 h-5 rounded cursor-pointer border-0 p-0"
+                  />
+                  Màu tùy chọn…
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().unsetColor().run();
+                    setShowColorMenu(false);
+                  }}
+                  className="w-full mt-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-50 rounded text-left"
+                >
+                  Bỏ màu
                 </button>
               </div>
             </>
