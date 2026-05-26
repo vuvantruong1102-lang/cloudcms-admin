@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Copy, ExternalLink, Sparkles, Save, Check, Trash2, Plus } from 'lucide-react';
+import { Copy, ExternalLink, Sparkles, Save, Check, Trash2, Plus, PanelLeftClose, PanelLeftOpen, GripVertical } from 'lucide-react';
 import { api } from '../lib/api';
 
 const PLATFORMS: Record<string, { label: string; short: string; color: string; open: string }> = {
@@ -50,6 +50,32 @@ export default function ContentEditor() {
   const [newPlatforms, setNewPlatforms] = useState<string[]>([]);
   const [savedMsg, setSavedMsg] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+
+  // Layout: độ rộng cột trái (px) + thu gọn
+  const [leftWidth, setLeftWidth] = useState(420);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const draggingRef = useRef(false);
+
+  function startDrag(e: React.MouseEvent) {
+    e.preventDefault();
+    draggingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      const w = Math.min(640, Math.max(280, ev.clientX - 240)); // 240 ~ bù sidebar app
+      setLeftWidth(w);
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
 
   async function aiWriteBody() {
     if (!title.trim()) { alert('Cần nhập tên nội dung trước để AI có chủ đề'); return; }
@@ -156,9 +182,16 @@ export default function ContentEditor() {
   const inactivePlatforms = Object.keys(PLATFORMS).filter((k) => !activePlatforms.includes(k));
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">{title}</h1>
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setLeftCollapsed(!leftCollapsed)}
+            className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title={leftCollapsed ? 'Hiện thông tin chung' : 'Ẩn thông tin chung'}>
+            {leftCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+          </button>
+          <h1 className="text-lg font-semibold truncate max-w-md">{title}</h1>
+        </div>
         <div className="flex gap-2">
           <button onClick={deletePost} className="border border-gray-300 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 flex items-center gap-1">
             <Trash2 className="w-4 h-4" /> Xoá
@@ -167,63 +200,83 @@ export default function ContentEditor() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-          <Field label="Tên nội dung">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Loại">
-              <select value={contentType} onChange={(e) => setContentType(e.target.value)} className="input">
-                {Object.entries(TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-            </Field>
-            <Field label="Trạng thái">
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
-                {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
-              </select>
-            </Field>
-          </div>
-          <Field label="Lịch đăng">
-            <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="input" />
-          </Field>
-          <Field label="Mô tả & AI Prompts">
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} className="input" />
-            <button onClick={aiWriteBody} disabled={aiBusy}
-              className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md text-xs hover:bg-gray-50 disabled:opacity-50">
-              ✨ {aiBusy ? 'AI đang viết…' : 'AI viết mô tả từ tiêu đề'}
-            </button>
-          </Field>
-          <Field label="Link bài viết web (nếu có)">
-            <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="input" placeholder="https://yokool.vn/news/..." />
-          </Field>
-          <button onClick={savePost} className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-1">
-            <Save className="w-4 h-4" /> {savedMsg ? '✓ Đã lưu!' : 'Lưu thông tin chung'}
-          </button>
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <div className="text-sm font-medium text-gray-600 mb-3">Thêm nền tảng</div>
-          <div className="space-y-2">
-            {inactivePlatforms.length === 0 ? (
-              <span className="text-xs text-gray-400">Đã thêm đủ 4 nền tảng</span>
-            ) : inactivePlatforms.map((k) => (
-              <button key={k} onClick={() => addPlatform(k)}
-                className="w-full border border-gray-300 px-3 py-2 rounded-md text-sm hover:bg-gray-50 flex items-center gap-1">
-                <Plus className="w-4 h-4" /> {PLATFORMS[k].label}
+      {/* Body: 2 cột */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Cột trái: thông tin chung */}
+        {!leftCollapsed && (
+          <div className="overflow-y-auto bg-gray-50 border-r border-gray-200 shrink-0" style={{ width: leftWidth }}>
+            <div className="p-5 space-y-4">
+              <Field label="Tên nội dung">
+                <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Loại">
+                  <select value={contentType} onChange={(e) => setContentType(e.target.value)} className="input">
+                    {Object.entries(TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </Field>
+                <Field label="Trạng thái">
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+                    {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Lịch đăng">
+                <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="input" />
+              </Field>
+              <Field label="Mô tả & AI Prompts">
+                <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} className="input" />
+                <button onClick={aiWriteBody} disabled={aiBusy}
+                  className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md text-xs hover:bg-gray-50 disabled:opacity-50">
+                  <Sparkles className="w-3.5 h-3.5" /> {aiBusy ? 'AI đang viết…' : 'AI viết mô tả'}
+                </button>
+              </Field>
+              <Field label="Link bài viết web (nếu có)">
+                <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="input" placeholder="https://yokool.vn/news/..." />
+              </Field>
+              <button onClick={savePost} className="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 flex items-center justify-center gap-1">
+                <Save className="w-4 h-4" /> {savedMsg ? '✓ Đã lưu!' : 'Lưu thông tin chung'}
               </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      <h2 className="text-lg font-semibold mt-7 mb-4">Caption từng nền tảng</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {targets.map((t) => (
-          <TargetCard key={t.id} contentId={id!} target={t} templates={templates}
-            aiEnabled={aiEnabled} topic={title} productInfo={body} onChange={load} />
-        ))}
-        {targets.length === 0 && <p className="text-sm text-gray-400">Chưa gắn nền tảng nào. Dùng "Thêm nền tảng" bên trên.</p>}
+              <div className="pt-2 border-t border-gray-200">
+                <div className="text-sm font-medium text-gray-600 mb-2">Thêm nền tảng</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {inactivePlatforms.length === 0 ? (
+                    <span className="text-xs text-gray-400 col-span-2">Đã thêm đủ 4 nền tảng</span>
+                  ) : inactivePlatforms.map((k) => (
+                    <button key={k} onClick={() => addPlatform(k)}
+                      className="border border-gray-300 px-2 py-1.5 rounded-md text-xs hover:bg-gray-50 flex items-center justify-center gap-1">
+                      <Plus className="w-3.5 h-3.5" /> {PLATFORMS[k].label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Thanh kéo thả */}
+        {!leftCollapsed && (
+          <div onMouseDown={startDrag}
+            className="w-1.5 cursor-col-resize bg-gray-100 hover:bg-blue-400 transition-colors shrink-0 flex items-center justify-center group">
+            <GripVertical className="w-3 h-3 text-gray-400 group-hover:text-white" />
+          </div>
+        )}
+
+        {/* Cột phải: caption nền tảng */}
+        <div className="flex-1 overflow-y-auto p-5">
+          <h2 className="text-base font-semibold mb-4 text-gray-700">Caption từng nền tảng</h2>
+          {targets.length === 0 ? (
+            <p className="text-sm text-gray-400">Chưa gắn nền tảng nào. Dùng "Thêm nền tảng" bên trái.</p>
+          ) : (
+            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
+              {targets.map((t) => (
+                <TargetCard key={t.id} contentId={id!} target={t} templates={templates}
+                  aiEnabled={aiEnabled} topic={title} productInfo={body} onChange={load} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <style>{inputStyle}</style>
     </div>
@@ -279,7 +332,7 @@ function TargetCard({ contentId, target, templates, aiEnabled, topic, productInf
           {tpl.map((x) => <option key={x.id} value={x.body}>{x.name}</option>)}
         </select>
       )}
-      <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={5}
+      <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={10}
         className="input text-sm" placeholder={`Caption cho ${pf.label}...`} />
       <div className="flex gap-1 flex-wrap mt-2">
         <Btn onClick={copy} icon={Copy}>Copy</Btn>
