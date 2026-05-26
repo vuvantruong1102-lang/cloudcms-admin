@@ -48,6 +48,7 @@ export default function ContentEditor() {
   const [scheduledAt, setScheduledAt] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [newPlatforms, setNewPlatforms] = useState<string[]>([]);
+  const [savedMsg, setSavedMsg] = useState(false);
 
   const load = useCallback(async () => {
     if (isNew) return;
@@ -83,7 +84,8 @@ export default function ContentEditor() {
       title, content_type: contentType, body, status,
       scheduled_at: localToMs(scheduledAt), link_url: linkUrl,
     });
-    alert('Đã lưu');
+    setSavedMsg(true);
+    setTimeout(() => setSavedMsg(false), 2500);
   }
 
   async function deletePost() {
@@ -110,7 +112,7 @@ export default function ContentEditor() {
               {Object.entries(TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </Field>
-          <Field label="Mô tả / kịch bản gốc">
+          <Field label="Mô tả & AI Prompts">
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} className="input" />
           </Field>
           <Field label="Đăng lên nền tảng nào?">
@@ -174,14 +176,14 @@ export default function ContentEditor() {
           <Field label="Lịch đăng">
             <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="input" />
           </Field>
-          <Field label="Mô tả / kịch bản gốc">
+          <Field label="Mô tả & AI Prompts">
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} className="input" />
           </Field>
           <Field label="Link bài viết web (nếu có)">
             <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="input" placeholder="https://yokool.vn/news/..." />
           </Field>
           <button onClick={savePost} className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-1">
-            <Save className="w-4 h-4" /> Lưu thông tin chung
+            <Save className="w-4 h-4" /> {savedMsg ? '✓ Đã lưu!' : 'Lưu thông tin chung'}
           </button>
         </div>
 

@@ -79,25 +79,23 @@ export default function ContentList() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr className="text-left">
+                <th className="px-4 py-2 font-medium text-gray-600 w-36">Lịch đăng</th>
                 <th className="px-4 py-2 font-medium text-gray-600">Tiêu đề</th>
                 <th className="px-4 py-2 font-medium text-gray-600 w-28">Loại</th>
-                <th className="px-4 py-2 font-medium text-gray-600 w-28">Trạng thái</th>
                 <th className="px-4 py-2 font-medium text-gray-600 w-32">Nền tảng</th>
-                <th className="px-4 py-2 font-medium text-gray-600 w-36">Lịch đăng</th>
+                <th className="px-4 py-2 font-medium text-gray-600 w-28">Trạng thái</th>
               </tr>
             </thead>
             <tbody>
               {items.map((it) => (
                 <tr key={it.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3 text-xs text-gray-500">
+                    {it.scheduled_at ? new Date(it.scheduled_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <Link to={`/content/${it.id}`} className="font-medium text-gray-900 hover:text-blue-600">{it.title}</Link>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{TYPE[it.content_type] ?? it.content_type}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS[it.status]?.cls ?? ''}`}>
-                      {STATUS[it.status]?.label ?? it.status}
-                    </span>
-                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       {(it.targets ?? []).map((t) => (
@@ -109,8 +107,10 @@ export default function ContentList() {
                       {(!it.targets || it.targets.length === 0) && <span className="text-xs text-gray-400">chưa gắn</span>}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500">
-                    {it.scheduled_at ? new Date(it.scheduled_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS[it.status]?.cls ?? ''}`}>
+                      {STATUS[it.status]?.label ?? it.status}
+                    </span>
                   </td>
                 </tr>
               ))}
