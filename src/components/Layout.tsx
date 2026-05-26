@@ -1,11 +1,13 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { FileText, Image, Tag, LogOut, Cloud } from 'lucide-react';
+import { FileText, Image, Tag, LogOut, Cloud, Megaphone, CalendarDays } from 'lucide-react';
 import { useAuth } from '../lib/auth-store';
 
 const navItems = [
   { to: '/posts', label: 'Bài viết', icon: FileText },
   { to: '/media', label: 'Media', icon: Image },
   { to: '/categories', label: 'Danh mục', icon: Tag },
+  { to: '/content', label: 'Nội dung đa kênh', icon: Megaphone },
+  { to: '/calendar', label: 'Lịch đăng', icon: CalendarDays },
 ];
 
 export default function Layout() {
