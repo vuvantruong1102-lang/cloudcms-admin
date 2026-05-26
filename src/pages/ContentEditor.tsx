@@ -49,7 +49,6 @@ export default function ContentEditor() {
   const [linkUrl, setLinkUrl] = useState('');
   const [newPlatforms, setNewPlatforms] = useState<string[]>([]);
   const [savedMsg, setSavedMsg] = useState(false);
-  const [aiBusy, setAiBusy] = useState(false);
 
   // Layout: độ rộng cột trái (px) + thu gọn
   const [leftWidth, setLeftWidth] = useState(420);
@@ -75,16 +74,6 @@ export default function ContentEditor() {
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }
-
-  async function aiWriteBody() {
-    if (!title.trim()) { alert('Cần nhập tên nội dung trước để AI có chủ đề'); return; }
-    setAiBusy(true);
-    try {
-      const res = await api.post<{ content: string }>('/ai/write-article', { topic: title, outline: body || undefined });
-      if (res.content) setBody(res.content);
-    } catch (e: any) { alert('AI lỗi: ' + e.message); }
-    finally { setAiBusy(false); }
   }
 
   const load = useCallback(async () => {
@@ -226,10 +215,6 @@ export default function ContentEditor() {
               </Field>
               <Field label="Mô tả & AI Prompts">
                 <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={6} className="input" />
-                <button onClick={aiWriteBody} disabled={aiBusy}
-                  className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md text-xs hover:bg-gray-50 disabled:opacity-50">
-                  <Sparkles className="w-3.5 h-3.5" /> {aiBusy ? 'AI đang viết…' : 'AI viết mô tả'}
-                </button>
               </Field>
               <Field label="Link bài viết web (nếu có)">
                 <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="input" placeholder="https://yokool.vn/news/..." />
@@ -269,7 +254,7 @@ export default function ContentEditor() {
           {targets.length === 0 ? (
             <p className="text-sm text-gray-400">Chưa gắn nền tảng nào. Dùng "Thêm nền tảng" bên trái.</p>
           ) : (
-            <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
+            <div className="flex flex-col gap-4 max-w-4xl">
               {targets.map((t) => (
                 <TargetCard key={t.id} contentId={id!} target={t} templates={templates}
                   aiEnabled={aiEnabled} topic={title} productInfo={body} onChange={load} />
