@@ -9,6 +9,7 @@ import MediaPage from './pages/Media';
 import ContentListPage from './pages/ContentList';
 import ContentEditorPage from './pages/ContentEditor';
 import CalendarPage from './pages/Calendar';
+import VideosPage from './pages/Videos';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="posts/new" element={<PostEditorPage />} />
         <Route path="posts/:id" element={<PostEditorPage />} />
         <Route path="media" element={<MediaPage />} />
+        <Route path="videos" element={<VideosPage />} />
         <Route path="content" element={<ContentListPage />} />
         <Route path="content/new" element={<ContentEditorPage />} />
         <Route path="content/:id" element={<ContentEditorPage />} />
