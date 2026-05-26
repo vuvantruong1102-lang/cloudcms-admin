@@ -49,6 +49,17 @@ export default function ContentEditor() {
   const [linkUrl, setLinkUrl] = useState('');
   const [newPlatforms, setNewPlatforms] = useState<string[]>([]);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+
+  async function aiWriteBody() {
+    if (!title.trim()) { alert('Cần nhập tên nội dung trước để AI có chủ đề'); return; }
+    setAiBusy(true);
+    try {
+      const res = await api.post<{ content: string }>('/ai/write-article', { topic: title, outline: body || undefined });
+      if (res.content) setBody(res.content);
+    } catch (e: any) { alert('AI lỗi: ' + e.message); }
+    finally { setAiBusy(false); }
+  }
 
   const load = useCallback(async () => {
     if (isNew) return;
@@ -178,6 +189,10 @@ export default function ContentEditor() {
           </Field>
           <Field label="Mô tả & AI Prompts">
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} className="input" />
+            <button onClick={aiWriteBody} disabled={aiBusy}
+              className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-md text-xs hover:bg-gray-50 disabled:opacity-50">
+              ✨ {aiBusy ? 'AI đang viết…' : 'AI viết mô tả từ tiêu đề'}
+            </button>
           </Field>
           <Field label="Link bài viết web (nếu có)">
             <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="input" placeholder="https://yokool.vn/news/..." />
