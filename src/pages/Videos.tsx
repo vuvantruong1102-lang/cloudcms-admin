@@ -231,14 +231,15 @@ export default function Videos() {
         <div className="p-8 text-center text-gray-500 text-sm bg-white border border-gray-200 rounded-lg">Thư mục trống.</div>
       ) : view === 'list' ? (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr className="text-left">
                 <th className="px-4 py-2 font-medium text-gray-600">Tên file</th>
                 <th className="px-4 py-2 font-medium text-gray-600 w-24">Dung lượng</th>
                 <th className="px-4 py-2 font-medium text-gray-600 w-28">Ngày tải</th>
                 <th className="px-4 py-2 font-medium text-gray-600 w-20">Nguồn</th>
-                <th className="px-4 py-2 font-medium text-gray-600 w-36 text-right">Hành động</th>
+                <th className="px-4 py-2 font-medium text-gray-600 w-40 text-right sticky right-0 bg-gray-50">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -250,10 +251,10 @@ export default function Videos() {
                   <td className="px-4 py-3 text-gray-600">{fmtSize(v.size_bytes)}</td>
                   <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(v.created_at)}</td>
                   <td className="px-4 py-3"><span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{v.source === 'r2' ? 'R2' : 'Drive'}</span></td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 sticky right-0 bg-white">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setMoving(v)} className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Di chuyển"><FolderInput className="w-4 h-4" /></button>
-                      <button onClick={() => download(v)} className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded" title="Tải về"><Download className="w-4 h-4" /></button>
+                      <button onClick={() => download(v)} className="inline-flex items-center gap-1 px-2 py-1.5 text-green-700 bg-green-50 hover:bg-green-100 rounded font-medium" title="Tải video về"><Download className="w-4 h-4" /> Tải</button>
                       {v.source === 'drive' && <a href={v.drive_url} target="_blank" rel="noopener" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Mở Drive"><ExternalLink className="w-4 h-4" /></a>}
                       <button onClick={() => del(v)} className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded" title="Xoá"><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -262,6 +263,7 @@ export default function Videos() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -276,7 +278,7 @@ export default function Videos() {
                 <div className="text-xs text-gray-500 mt-0.5">{fmtSize(v.size_bytes)} · {fmtDate(v.created_at)}</div>
                 <div className="flex gap-1 flex-wrap mt-2">
                   <button onClick={() => setMoving(v)} className="inline-flex items-center gap-1 px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50"><FolderInput className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => download(v)} className="inline-flex items-center gap-1 px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50"><Download className="w-3.5 h-3.5" /> Tải</button>
+                  <button onClick={() => download(v)} className="inline-flex items-center gap-1 px-2 py-1 border border-green-200 text-green-700 bg-green-50 rounded text-xs font-medium hover:bg-green-100"><Download className="w-3.5 h-3.5" /> Tải về</button>
                   {v.source === 'drive' && <a href={v.drive_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50"><ExternalLink className="w-3.5 h-3.5" /></a>}
                   <button onClick={() => del(v)} className="inline-flex items-center gap-1 px-2 py-1 border border-gray-300 rounded text-xs text-red-600 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
