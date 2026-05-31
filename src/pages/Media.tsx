@@ -89,14 +89,14 @@ export default function MediaPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Thư viện ảnh</h1>
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <h1 className="text-lg sm:text-xl font-semibold">Thư viện ảnh</h1>
         <div className="flex gap-2">
-          <button onClick={createFolder} className="border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
+          <button onClick={createFolder} className="flex-1 sm:flex-none justify-center border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
             <FolderPlus className="w-4 h-4" /> Thư mục mới
           </button>
-          <label className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-blue-700 cursor-pointer">
+          <label className="flex-1 sm:flex-none justify-center bg-blue-600 text-white px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-blue-700 cursor-pointer">
             <Upload className="w-4 h-4" /> {uploading ? 'Đang upload…' : 'Tải lên'}
             <input type="file" className="hidden" accept="image/*" multiple onChange={upload} disabled={uploading} />
           </label>
@@ -104,7 +104,7 @@ export default function MediaPage() {
       </div>
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-sm mb-4">
+      <div className="flex items-center gap-1 text-sm mb-4 flex-wrap">
         <button onClick={() => setCurrentFolder(null)} className="flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 text-gray-600">
           <Home className="w-4 h-4" /> Thư viện ảnh
         </button>
@@ -118,7 +118,7 @@ export default function MediaPage() {
 
       {/* Folders */}
       {subFolders.length > 0 && (
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
           {subFolders.map((f) => (
             <div key={f.id} className="group flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2.5 hover:border-blue-300 cursor-pointer"
               onDoubleClick={() => setCurrentFolder(f.id)}>
@@ -135,7 +135,7 @@ export default function MediaPage() {
       ) : items.length === 0 && subFolders.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-gray-500 text-sm">Thư mục trống</div>
       ) : (
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {items.map((m) => (
             <div key={m.id} className="group relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 border-transparent hover:border-blue-500">
               <button onClick={() => setSelected(m)} className="w-full h-full">
@@ -153,7 +153,7 @@ export default function MediaPage() {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-lg w-full max-w-3xl grid grid-cols-[1fr_280px]" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto grid grid-cols-1 sm:grid-cols-[1fr_280px]" onClick={(e) => e.stopPropagation()}>
             <div className="bg-gray-50 flex items-center justify-center p-4">
               <img src={selected.url} alt={selected.alt_text ?? ''} className="max-w-full max-h-[500px] object-contain" />
             </div>

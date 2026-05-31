@@ -95,15 +95,15 @@ export default function PostsList() {
   }
 
   return (
-    <div className="p-6 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Website</h1>
+    <div className="p-4 sm:p-6 max-w-7xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 sm:mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold">Website</h1>
         <div className="flex gap-2">
           <button onClick={() => setShowCatPanel(!showCatPanel)}
-            className="border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
-            <Tag className="w-4 h-4" /> Quản lý danh mục
+            className="flex-1 sm:flex-none justify-center border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
+            <Tag className="w-4 h-4" /> <span className="hidden xs:inline sm:inline">Quản lý </span>danh mục
           </button>
-          <Link to="/posts/new" className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
+          <Link to="/posts/new" className="flex-1 sm:flex-none justify-center bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
             <Plus className="w-4 h-4" /> Bài viết mới
           </Link>
         </div>
@@ -116,13 +116,13 @@ export default function PostsList() {
             <h2 className="text-sm font-semibold flex items-center gap-1"><Tag className="w-4 h-4" /> Danh mục</h2>
             <button onClick={() => setShowCatPanel(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
           </div>
-          <div className="flex gap-2 mb-3">
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
             <input value={newCatName} onChange={(e) => setNewCatName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && createCategory()}
               placeholder="Tên danh mục mới…"
               className="flex-1 px-3 py-2 border border-gray-200 rounded-md text-sm" />
             <button onClick={createCategory} disabled={creatingCat || !newCatName.trim()}
-              className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1">
+              className="justify-center bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1">
               <Plus className="w-4 h-4" /> {creatingCat ? 'Đang tạo…' : 'Thêm danh mục'}
             </button>
           </div>
@@ -141,8 +141,8 @@ export default function PostsList() {
         </div>
       )}
 
-      <div className="flex gap-3 mb-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mb-4">
+        <div className="relative flex-1 sm:max-w-sm">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && load()}
@@ -158,13 +158,55 @@ export default function PostsList() {
         </select>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* ===== MOBILE: danh sách dạng thẻ ===== */}
+      <div className="sm:hidden space-y-2">
+        {loading ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-gray-500 text-sm">Đang tải…</div>
+        ) : posts.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-gray-500 text-sm">Chưa có bài viết nào</div>
+        ) : posts.map((p) => (
+          <div key={p.id} className="bg-white border border-gray-200 rounded-lg p-3">
+            <div className="flex items-start justify-between gap-2">
+              <Link to={`/posts/${p.id}`} className="font-medium text-gray-900 leading-snug">{p.title}</Link>
+              <span className={`flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium ${statusColor[p.status]}`}>{statusLabel[p.status]}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1 truncate">/{p.slug}</div>
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
+              {p.category_name && <span className="inline-block bg-gray-100 text-gray-700 rounded-full px-2 py-0.5">{p.category_name}</span>}
+              {p.seo_score !== null && (
+                <span className={`font-medium ${p.seo_score >= 80 ? 'text-green-600' : p.seo_score >= 50 ? 'text-amber-600' : 'text-red-600'}`}>SEO {p.seo_score}</span>
+              )}
+              <span>{new Date(p.updated_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+            </div>
+            <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-gray-100">
+              {p.status === 'published' && (
+                <a href={`https://yokool.vn/news/${p.slug}`} target="_blank" rel="noopener"
+                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded" title="Xem trên yokool.vn">
+                  <Eye className="w-4 h-4" />
+                </a>
+              )}
+              <button type="button" onClick={() => archivePost(p)} disabled={actionLoading === p.id}
+                className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded disabled:opacity-50">
+                {p.status === 'archived' ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+              </button>
+              <button type="button" onClick={() => deletePost(p)} disabled={actionLoading === p.id}
+                className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ===== DESKTOP/TABLET: bảng (có scroll ngang dự phòng) ===== */}
+      <div className="hidden sm:block bg-white border border-gray-200 rounded-lg overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-gray-500 text-sm">Đang tải…</div>
         ) : posts.length === 0 ? (
           <div className="p-8 text-center text-gray-500 text-sm">Chưa có bài viết nào</div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr className="text-left">
                 <th className="px-4 py-2 font-medium text-gray-600">Tiêu đề</th>
@@ -221,6 +263,7 @@ export default function PostsList() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

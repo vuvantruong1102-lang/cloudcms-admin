@@ -193,20 +193,20 @@ export default function PostEditor() {
       {/* Top bar - sticky top-0 */}
       <div
         ref={topbarRef}
-        className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-20"
+        className="bg-white border-b border-gray-200 px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sticky top-14 lg:top-0 z-20"
       >
-        <div className="flex items-center gap-3">
-          <button onClick={() => nav('/posts')} className="p-1.5 hover:bg-gray-100 rounded">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button onClick={() => nav('/posts')} className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <span className="text-sm font-medium">{isNew ? 'Bài viết mới' : 'Chỉnh sửa bài'}</span>
+          <span className="text-sm font-medium truncate">{isNew ? 'Bài viết mới' : 'Chỉnh sửa bài'}</span>
           {autoSaved && (
-            <span className="text-xs text-gray-500">
+            <span className="hidden sm:inline text-xs text-gray-500">
               Đã lưu • {new Date(autoSaved).toLocaleTimeString('vi-VN')}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* Nút Archive + Delete - chỉ hiện khi đã có bài (không phải bài mới) */}
           {!isNew && (
             <>
@@ -217,8 +217,8 @@ export default function PostEditor() {
                 title={post.status === 'archived' ? 'Khôi phục bài' : 'Lưu trữ (ẩn khỏi web)'}
               >
                 {post.status === 'archived'
-                  ? <><ArchiveRestore className="w-3.5 h-3.5 inline mr-1" /> Khôi phục</>
-                  : <><Archive className="w-3.5 h-3.5 inline mr-1" /> Lưu trữ</>
+                  ? <><ArchiveRestore className="w-3.5 h-3.5 inline sm:mr-1" /> <span className="hidden sm:inline">Khôi phục</span></>
+                  : <><Archive className="w-3.5 h-3.5 inline sm:mr-1" /> <span className="hidden sm:inline">Lưu trữ</span></>
                 }
               </button>
               <button
@@ -227,37 +227,37 @@ export default function PostEditor() {
                 className="text-sm px-2.5 py-1.5 border border-gray-300 rounded-md hover:bg-red-50 hover:border-red-300 hover:text-red-700 disabled:opacity-50"
                 title="Xóa vĩnh viễn"
               >
-                <Trash2 className="w-3.5 h-3.5 inline mr-1" /> Xóa
+                <Trash2 className="w-3.5 h-3.5 inline sm:mr-1" /> <span className="hidden sm:inline">Xóa</span>
               </button>
-              <div className="w-px h-5 bg-gray-300 mx-1" />
+              <div className="hidden sm:block w-px h-5 bg-gray-300 mx-1" />
             </>
           )}
 
           <button
             onClick={() => save('draft')}
             disabled={saving}
-            className="text-sm px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+            className="text-sm px-2.5 sm:px-3 py-1.5 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
           >
-            <Save className="w-3.5 h-3.5 inline mr-1" /> Lưu nháp
+            <Save className="w-3.5 h-3.5 inline sm:mr-1" /> <span className="hidden sm:inline">Lưu nháp</span>
           </button>
           <button
             onClick={() => save('published')}
             disabled={saving || !post.title}
-            className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+            className="text-sm px-2.5 sm:px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
           >
-            <Rocket className="w-3.5 h-3.5" /> {post.status === 'published' ? 'Cập nhật' : 'Xuất bản'}
+            <Rocket className="w-3.5 h-3.5" /> <span className="whitespace-nowrap">{post.status === 'published' ? 'Cập nhật' : 'Xuất bản'}</span>
           </button>
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-[1fr_360px] gap-4 p-4 max-w-[1400px] mx-auto w-full">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 p-3 sm:p-4 max-w-[1400px] mx-auto w-full">
         {/* LEFT: Editor */}
         <div className="space-y-3">
           <input
             value={post.title}
             onChange={(e) => updateTitle(e.target.value)}
             placeholder="Nhập tiêu đề bài viết…"
-            className="w-full text-2xl font-semibold py-2 px-1 border-0 focus:outline-none bg-transparent"
+            className="w-full text-xl sm:text-2xl font-semibold py-2 px-1 border-0 focus:outline-none bg-transparent"
           />
 
           {/* URL row - hiển thị slug auto-generate hoặc cho phép custom */}

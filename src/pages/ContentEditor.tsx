@@ -171,29 +171,29 @@ export default function ContentEditor() {
   const inactivePlatforms = Object.keys(PLATFORMS).filter((k) => !activePlatforms.includes(k));
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-white gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button onClick={() => setLeftCollapsed(!leftCollapsed)}
-            className="p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title={leftCollapsed ? 'Hiện thông tin chung' : 'Ẩn thông tin chung'}>
+            className="hidden lg:inline-flex p-1.5 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded" title={leftCollapsed ? 'Hiện thông tin chung' : 'Ẩn thông tin chung'}>
             {leftCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
           </button>
-          <h1 className="text-lg font-semibold truncate max-w-md">{title}</h1>
+          <h1 className="text-base sm:text-lg font-semibold truncate">{title}</h1>
         </div>
-        <div className="flex gap-2">
-          <button onClick={deletePost} className="border border-gray-300 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 flex items-center gap-1">
-            <Trash2 className="w-4 h-4" /> Xoá
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={deletePost} className="border border-gray-300 px-2.5 sm:px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 flex items-center gap-1">
+            <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline">Xoá</span>
           </button>
-          <button onClick={() => nav('/content')} className="border border-gray-300 px-3 py-2 rounded-md text-sm hover:bg-gray-50">← Danh sách</button>
+          <button onClick={() => nav('/content')} className="border border-gray-300 px-2.5 sm:px-3 py-2 rounded-md text-sm hover:bg-gray-50 whitespace-nowrap">← <span className="hidden sm:inline">Danh sách</span></button>
         </div>
       </div>
 
-      {/* Body: 2 cột */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Body: dọc trên mobile, 2 cột từ lg */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
         {/* Cột trái: thông tin chung */}
         {!leftCollapsed && (
-          <div className="overflow-y-auto bg-gray-50 border-r border-gray-200 shrink-0" style={{ width: leftWidth }}>
+          <div className="lg:overflow-y-auto bg-gray-50 border-b lg:border-b-0 lg:border-r border-gray-200 shrink-0 w-full lg:w-auto" style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? leftWidth : undefined }}>
             <div className="p-5 space-y-4">
               <Field label="Tên nội dung">
                 <input value={title} onChange={(e) => setTitle(e.target.value)} className="input" />
@@ -240,16 +240,16 @@ export default function ContentEditor() {
           </div>
         )}
 
-        {/* Thanh kéo thả */}
+        {/* Thanh kéo thả - chỉ desktop */}
         {!leftCollapsed && (
           <div onMouseDown={startDrag}
-            className="w-1.5 cursor-col-resize bg-gray-100 hover:bg-blue-400 transition-colors shrink-0 flex items-center justify-center group">
+            className="hidden lg:flex w-1.5 cursor-col-resize bg-gray-100 hover:bg-blue-400 transition-colors shrink-0 items-center justify-center group">
             <GripVertical className="w-3 h-3 text-gray-400 group-hover:text-white" />
           </div>
         )}
 
         {/* Cột phải: caption nền tảng */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 lg:overflow-y-auto p-4 sm:p-5">
           <h2 className="text-base font-semibold mb-4 text-gray-700">Caption từng nền tảng</h2>
           {targets.length === 0 ? (
             <p className="text-sm text-gray-400">Chưa gắn nền tảng nào. Dùng "Thêm nền tảng" bên trái.</p>

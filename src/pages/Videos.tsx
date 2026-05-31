@@ -137,20 +137,20 @@ export default function Videos() {
   }
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Video</h1>
-        <div className="flex gap-2">
-          <button onClick={createFolder} className="border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
-            <FolderPlus className="w-4 h-4" /> Thư mục mới
+    <div className="p-4 sm:p-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <h1 className="text-lg sm:text-xl font-semibold">Video</h1>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={createFolder} className="flex-1 sm:flex-none justify-center border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
+            <FolderPlus className="w-4 h-4" /> <span className="whitespace-nowrap">Thư mục mới</span>
           </button>
           <button onClick={() => setMode(mode === 'upload' ? 'none' : 'upload')}
-            className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
+            className="flex-1 sm:flex-none justify-center bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
             <UploadCloud className="w-4 h-4" /> Tải lên
           </button>
           <button onClick={() => setMode(mode === 'drive' ? 'none' : 'drive')}
-            className="border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
-            <Link2 className="w-4 h-4" /> Link Drive
+            className="flex-1 sm:flex-none justify-center border border-gray-300 px-3 py-2 rounded-md text-sm flex items-center gap-1 hover:bg-gray-50">
+            <Link2 className="w-4 h-4" /> <span className="whitespace-nowrap">Link Drive</span>
           </button>
         </div>
       </div>
@@ -212,7 +212,7 @@ export default function Videos() {
 
       {/* Folders */}
       {subFolders.length > 0 && (
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
           {subFolders.map((f) => (
             <div key={f.id} className="group flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2.5 hover:border-blue-300 cursor-pointer"
               onDoubleClick={() => setCurrentFolder(f.id)}>
@@ -264,7 +264,7 @@ export default function Videos() {
           </table>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {videos.map((v) => (
             <div key={v.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <div className="aspect-video bg-gray-100 flex items-center justify-center relative">

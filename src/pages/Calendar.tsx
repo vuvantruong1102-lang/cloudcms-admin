@@ -64,21 +64,26 @@ export default function Calendar() {
   }
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">{MONTHS[month]} {year}</h1>
+    <div className="p-4 sm:p-6 max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 sm:mb-6">
+        <h1 className="text-lg sm:text-xl font-semibold">{MONTHS[month]} {year}</h1>
         <div className="flex gap-2">
           <button onClick={prev} className="border border-gray-300 p-2 rounded-md hover:bg-gray-50"><ChevronLeft className="w-4 h-4" /></button>
           <button onClick={next} className="border border-gray-300 p-2 rounded-md hover:bg-gray-50"><ChevronRight className="w-4 h-4" /></button>
-          <Link to="/content/new" className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
+          <Link to="/content/new" className="flex-1 sm:flex-none justify-center bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-blue-700">
             <Plus className="w-4 h-4" /> Tạo nội dung
           </Link>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-2 mb-2 text-xs font-medium text-gray-400 text-center">
-        {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => <div key={d}>{d}</div>)}
+      {/* Lưới lịch: cuộn ngang trên mobile để giữ 7 cột, đủ rộng để bấm */}
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="min-w-[640px] sm:min-w-0">
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-xs font-medium text-gray-400 text-center">
+            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d) => <div key={d}>{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">{cells}</div>
+        </div>
       </div>
-      <div className="grid grid-cols-7 gap-2">{cells}</div>
       <p className="text-xs text-gray-400 mt-4">Chỉ hiện bài đã đặt lịch. Bấm vào bài để soạn caption từng nền tảng.</p>
     </div>
   );
