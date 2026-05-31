@@ -226,7 +226,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
     <div>
       <div
         className="flex flex-wrap items-center gap-0.5 p-1.5 bg-gray-50 border border-gray-200 rounded-md mb-3 sticky z-10 shadow-sm"
-        style={{ top: 'var(--editor-topbar-h, 44px)' }}
+        style={{ top: 'calc(var(--editor-topbar-h, 44px) + var(--mobile-header-h, 0px))' }}
       >
         <select
           onChange={(e) => {
