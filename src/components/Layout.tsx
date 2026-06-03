@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, Image, LogOut, Cloud, Megaphone, CalendarDays, Film, Menu, X } from 'lucide-react';
+import { FileText, Image, LogOut, Cloud, Megaphone, CalendarDays, Film, Menu, X, FileBox, FileCode } from 'lucide-react';
 import { useAuth } from '../lib/auth-store';
 
 const navItems = [
   { to: '/posts', label: 'Website', icon: FileText },
   { to: '/media', label: 'Thư viện ảnh', icon: Image },
   { to: '/videos', label: 'Video', icon: Film },
+  { to: '/documents', label: 'Tài liệu', icon: FileBox },
+  { to: '/library', label: 'Thư viện bài viết', icon: FileCode },
   { to: '/content', label: 'Nội dung đa kênh', icon: Megaphone },
   { to: '/calendar', label: 'Lịch đăng', icon: CalendarDays },
 ];
