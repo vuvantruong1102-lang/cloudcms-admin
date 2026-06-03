@@ -10,6 +10,9 @@ import ContentListPage from './pages/ContentList';
 import ContentEditorPage from './pages/ContentEditor';
 import CalendarPage from './pages/Calendar';
 import VideosPage from './pages/Videos';
+import DocumentsPage from './pages/Documents';
+import LibraryPage from './pages/Library';
+import LibraryEditorPage from './pages/LibraryEditor';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +36,10 @@ export default function App() {
         <Route path="posts/:id" element={<PostEditorPage />} />
         <Route path="media" element={<MediaPage />} />
         <Route path="videos" element={<VideosPage />} />
+        <Route path="documents" element={<DocumentsPage />} />
+        <Route path="library" element={<LibraryPage />} />
+        <Route path="library/new" element={<LibraryEditorPage />} />
+        <Route path="library/:id" element={<LibraryEditorPage />} />
         <Route path="content" element={<ContentListPage />} />
         <Route path="content/new" element={<ContentEditorPage />} />
         <Route path="content/:id" element={<ContentEditorPage />} />
