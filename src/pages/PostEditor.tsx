@@ -6,6 +6,9 @@ import { slugify } from '../lib/slugify';
 import ArticleEditor from '../components/ArticleEditor';
 import SeoPanel from '../components/SeoPanel';
 import MediaPicker from '../components/MediaPicker';
+import { AlertTriangle } from 'lucide-react';
+
+const OG_RECOMMEND = { width: 1200, height: 630 };
 import CategorySelect from '../components/CategorySelect';
 
 type Post = {
@@ -41,6 +44,16 @@ export default function PostEditor() {
   const [saving, setSaving] = useState(false);
   const [autoSaved, setAutoSaved] = useState<number | null>(null);
   const [pickerMode, setPickerMode] = useState<'editor' | 'featured' | null>(null);
+  const [featuredDim, setFeaturedDim] = useState<{ width: number | null; height: number | null }>({ width: null, height: null });
+
+  // Khi ảnh chính có sẵn (load từ server) mà chưa biết kích thước, đọc trực tiếp từ ảnh
+  useEffect(() => {
+    if (post.og_image_url && !featuredDim.width) {
+      const img = new Image();
+      img.onload = () => setFeaturedDim({ width: img.naturalWidth, height: img.naturalHeight });
+      img.src = post.og_image_url;
+    }
+  }, [post.og_image_url, featuredDim.width]);
 
   // ===== Auto-slug: track xem user đã manual edit slug chưa =====
   // Nếu user edit slug bằng tay → STOP auto sync từ title
@@ -172,11 +185,12 @@ export default function PostEditor() {
     // eslint-disable-next-line
   }, [post.title, post.content_html, post.meta_description, post.focus_keyword]);
 
-  function onPickImage(m: { url: string; alt_text: string | null; id: string }) {
+  function onPickImage(m: { url: string; alt_text: string | null; id: string; width?: number | null; height?: number | null }) {
     if (pickerMode === 'featured') {
       update('og_image_url', m.url);
       update('featured_image_id', m.id);
       if (m.alt_text) update('featured_image_alt', m.alt_text);
+      setFeaturedDim({ width: m.width ?? null, height: m.height ?? null });
     } else if (pickerMode === 'editor') {
       const html = `<p><img src="${m.url}" alt="${m.alt_text ?? ''}" /></p>`;
       update('content_html', (post.content_html ?? '') + html);
@@ -315,7 +329,7 @@ export default function PostEditor() {
               <div className="relative">
                 <img src={post.og_image_url} alt={post.featured_image_alt} className="w-full rounded-md border border-gray-200" />
                 <button
-                  onClick={() => { update('og_image_url', ''); update('featured_image_id', null); }}
+                  onClick={() => { update('og_image_url', ''); update('featured_image_id', null); setFeaturedDim({ width: null, height: null }); }}
                   className="absolute top-1 right-1 bg-white/90 text-xs px-2 py-0.5 rounded shadow-sm border border-gray-200"
                 >
                   Xóa
@@ -329,6 +343,21 @@ export default function PostEditor() {
                 <span className="text-2xl mb-1">🖼️</span>
                 Chọn ảnh
               </button>
+            )}
+            {/* Kích thước + cảnh báo */}
+            {post.og_image_url && (
+              featuredDim.width && featuredDim.height ? (
+                (featuredDim.width < OG_RECOMMEND.width || featuredDim.height < OG_RECOMMEND.height) ? (
+                  <div className="mt-2 text-[11px] text-amber-600 flex items-start gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+                    <span>Ảnh {featuredDim.width}×{featuredDim.height} nhỏ hơn khuyến nghị {OG_RECOMMEND.width}×{OG_RECOMMEND.height}. Có thể bị mờ khi chia sẻ.</span>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-[11px] text-gray-500">Kích thước: {featuredDim.width}×{featuredDim.height} px</div>
+                )
+              ) : (
+                <div className="mt-2 text-[11px] text-gray-400">Khuyến nghị {OG_RECOMMEND.width}×{OG_RECOMMEND.height} px (tỉ lệ ~1.91:1)</div>
+              )
             )}
             <input
               value={post.featured_image_alt}
@@ -468,7 +497,7 @@ export default function PostEditor() {
         </div>
       </div>
 
-      <MediaPicker open={pickerMode !== null} onClose={() => setPickerMode(null)} onSelect={onPickImage} />
+      <MediaPicker open={pickerMode !== null} onClose={() => setPickerMode(null)} onSelect={onPickImage} recommend={pickerMode === 'featured' ? OG_RECOMMEND : undefined} />
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Upload, Trash2, FolderPlus, Folder, ChevronRight, Home, FolderInput, X } from 'lucide-react';
+import { Upload, Trash2, FolderPlus, Folder, ChevronRight, Home, FolderInput, X, Crop } from 'lucide-react';
 import { api } from '../lib/api';
+import { readImageSize, fmtBytes } from '../lib/image-tools';
+import ImageEditor from '../components/ImageEditor';
 
 type Media = {
   id: string; url: string; filename: string; alt_text: string | null;
   size_bytes: number; mime_type: string; folder_id: string | null; created_at: number;
+  width: number | null; height: number | null;
 };
 type MFolder = { id: string; name: string; parent_id: string | null; created_at: number };
 
@@ -16,6 +19,7 @@ export default function MediaPage() {
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<Media | null>(null);
   const [moving, setMoving] = useState<Media | null>(null);
+  const [editing, setEditing] = useState<Media | null>(null);
 
   const loadFolders = useCallback(async () => {
     const d = await api.get<{ items: MFolder[] }>('/media-folders/list');
@@ -50,6 +54,11 @@ export default function MediaPage() {
       const fd = new FormData();
       fd.append('file', f);
       if (currentFolder) fd.append('folder_id', currentFolder);
+      try {
+        const dim = await readImageSize(f);
+        fd.append('width', String(dim.width));
+        fd.append('height', String(dim.height));
+      } catch { /* bỏ qua nếu không đọc được */ }
       try { await api.post('/media/upload', fd); } catch (e: any) { alert(e.message); }
     }
     setUploading(false);
@@ -86,6 +95,22 @@ export default function MediaPage() {
   async function updateMeta(id: string, alt_text: string) {
     await api.patch(`/media/${id}`, { alt_text });
     setItems((prev) => prev.map((m) => (m.id === id ? { ...m, alt_text } : m)));
+  }
+
+  async function onEditExport(file: File, dim: { width: number; height: number }) {
+    const fd = new FormData();
+    fd.append('file', file);
+    if (editing?.folder_id) fd.append('folder_id', editing.folder_id);
+    else if (currentFolder) fd.append('folder_id', currentFolder);
+    fd.append('width', String(dim.width));
+    fd.append('height', String(dim.height));
+    try {
+      await api.post('/media/upload', fd);
+      setEditing(null);
+      await loadItems();
+    } catch (e: any) {
+      alert(e.message);
+    }
   }
 
   return (
@@ -141,10 +166,21 @@ export default function MediaPage() {
               <button onClick={() => setSelected(m)} className="w-full h-full">
                 <img src={m.url} alt={m.alt_text ?? ''} className="w-full h-full object-cover" />
               </button>
-              <button onClick={() => setMoving(m)} title="Di chuyển"
-                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-white/90 rounded p-1 text-gray-600 hover:text-blue-600">
-                <FolderInput className="w-3.5 h-3.5" />
-              </button>
+              {m.width && m.height && (
+                <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded pointer-events-none">
+                  {m.width}×{m.height}
+                </span>
+              )}
+              <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
+                <button onClick={() => setEditing(m)} title="Chỉnh sửa (cắt/đổi cỡ)"
+                  className="bg-white/90 rounded p-1 text-gray-600 hover:text-blue-600">
+                  <Crop className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setMoving(m)} title="Di chuyển"
+                  className="bg-white/90 rounded p-1 text-gray-600 hover:text-blue-600">
+                  <FolderInput className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -159,7 +195,10 @@ export default function MediaPage() {
             </div>
             <div className="p-4 space-y-3">
               <div><div className="text-xs text-gray-500">Tên file</div><div className="text-sm break-all">{selected.filename}</div></div>
-              <div><div className="text-xs text-gray-500">Kích thước</div><div className="text-sm">{(selected.size_bytes / 1024).toFixed(1)} KB</div></div>
+              {selected.width && selected.height && (
+                <div><div className="text-xs text-gray-500">Kích thước (px)</div><div className="text-sm">{selected.width} × {selected.height}</div></div>
+              )}
+              <div><div className="text-xs text-gray-500">Dung lượng</div><div className="text-sm">{fmtBytes(selected.size_bytes)}</div></div>
               <div>
                 <label className="text-xs text-gray-500">Alt text</label>
                 <input defaultValue={selected.alt_text ?? ''} onBlur={(e) => updateMeta(selected.id, e.target.value)}
@@ -169,6 +208,10 @@ export default function MediaPage() {
                 <div className="text-xs text-gray-500 mb-1">URL</div>
                 <input readOnly value={selected.url} className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
               </div>
+              <button onClick={() => { setEditing(selected); setSelected(null); }}
+                className="w-full text-sm text-blue-600 border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-50 flex items-center justify-center gap-1">
+                <Crop className="w-3.5 h-3.5" /> Cắt / đổi kích thước
+              </button>
               <button onClick={() => del(selected.id)} className="w-full text-sm text-red-600 border border-red-200 px-3 py-1.5 rounded hover:bg-red-50 flex items-center justify-center gap-1">
                 <Trash2 className="w-3.5 h-3.5" /> Xóa
               </button>
@@ -195,6 +238,15 @@ export default function MediaPage() {
             ))}
           </div>
         </div>
+      )}
+      {/* Image editor (crop / resize) */}
+      {editing && (
+        <ImageEditor
+          src={editing.url}
+          filename={editing.filename}
+          onClose={() => setEditing(null)}
+          onExport={onEditExport}
+        />
       )}
     </div>
   );
