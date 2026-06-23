@@ -120,8 +120,25 @@ export default function Videos() {
 
   async function download(v: Video) {
     try {
-      const res = await api.get<{ download_url: string }>(`/videos/${v.id}/download`);
-      if (res.download_url) window.open(res.download_url, '_blank');
+      const res = await api.get<{ download_url: string; filename?: string }>(`/videos/${v.id}/download`);
+      if (!res.download_url) return;
+
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isIOS) {
+        // iOS Safari bỏ qua thuộc tính download với URL cross-origin và chặn click sau await.
+        // Backend đã gửi Content-Disposition: attachment nên điều hướng thẳng sẽ buộc Safari
+        // hiện tùy chọn lưu/chia sẻ file thay vì phát video inline.
+        window.location.href = res.download_url;
+        return;
+      }
+      // Desktop / Android: dùng thẻ <a download> để tải nền, không rời trang.
+      const a = document.createElement('a');
+      a.href = res.download_url;
+      if (res.filename) a.download = res.filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } catch (e: any) { alert('Lỗi: ' + e.message); }
   }
 
