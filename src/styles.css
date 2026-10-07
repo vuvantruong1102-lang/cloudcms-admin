@@ -101,3 +101,52 @@
 .faq-block-items .faq-answer p {
   @apply my-1;
 }
+
+/* ===== Table trong editor: viền hiện rõ + kéo chỉnh độ rộng cột ===== */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;   /* bắt buộc để width cột có hiệu lực */
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  min-width: 1em;
+}
+
+.ProseMirror table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Tay kéo chỉnh độ rộng cột (TipTap column resizing) */
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: #3b82f6;
+  pointer-events: none;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Ô đang được chọn */
+.ProseMirror table .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(59, 130, 246, 0.12);
+  pointer-events: none;
+}
