@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Save, Rocket, ArrowLeft, RefreshCw, Archive, Trash2, ArchiveRestore } from 'lucide-react';
 import { api } from '../lib/api';
 import { slugify } from '../lib/slugify';
-import ArticleEditor from '../components/ArticleEditor';
+import ArticleEditor, { type EditorHandle } from '../components/ArticleEditor';
 import SeoPanel from '../components/SeoPanel';
 import MediaPicker from '../components/MediaPicker';
 import { AlertTriangle } from 'lucide-react';
@@ -61,6 +61,7 @@ export default function PostEditor() {
 
   // ===== Topbar height: đo runtime để toolbar sticky đúng vị trí =====
   const topbarRef = useRef<HTMLDivElement>(null);
+  const editorHandleRef = useRef<EditorHandle | null>(null);
 
   // Load nếu là edit
   useEffect(() => {
@@ -192,8 +193,14 @@ export default function PostEditor() {
       if (m.alt_text) update('featured_image_alt', m.alt_text);
       setFeaturedDim({ width: m.width ?? null, height: m.height ?? null });
     } else if (pickerMode === 'editor') {
-      const html = `<p><img src="${m.url}" alt="${m.alt_text ?? ''}" /></p>`;
-      update('content_html', (post.content_html ?? '') + html);
+      // Chèn ảnh đúng vào vị trí con trỏ trong editor (không nối vào cuối).
+      if (editorHandleRef.current) {
+        editorHandleRef.current.insertImageAtCursor(m.url, m.alt_text ?? '');
+      } else {
+        // Dự phòng hiếm gặp: nếu handle chưa sẵn sàng thì nối vào cuối.
+        const html = `<p><img src="${m.url}" alt="${m.alt_text ?? ''}" /></p>`;
+        update('content_html', (post.content_html ?? '') + html);
+      }
     }
     setPickerMode(null);
   }
@@ -307,6 +314,7 @@ export default function PostEditor() {
               update('content_json', JSON.stringify(json));
             }}
             onPickImage={() => setPickerMode('editor')}
+            onReady={(handle) => { editorHandleRef.current = handle; }}
           />
 
           <details className="bg-white border border-gray-200 rounded-md p-3">
