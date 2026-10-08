@@ -28,10 +28,17 @@ import { FontSize } from '../lib/FontSizeExtension';
 import { FAQBlock, type FAQData } from '../lib/FAQExtension';
 import FAQManager, { type FAQEntry } from './FAQManager';
 
+// Handle mà ArticleEditor expose ra component cha, để cha chèn ảnh
+// (từ media picker) đúng vào vị trí con trỏ đã lưu, thay vì nối vào cuối.
+export type EditorHandle = {
+  insertImageAtCursor: (url: string, alt?: string) => void;
+};
+
 type Props = {
   initialHtml: string;
   onChange: (html: string, json: any) => void;
   onPickImage: () => void; // mở media picker
+  onReady?: (handle: EditorHandle) => void; // cha nhận handle để chèn ảnh
 };
 
 const FONTS = [
@@ -71,8 +78,11 @@ const FONT_SIZES = [
   { label: 'Khổng lồ', value: '36px' },
 ];
 
-export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Props) {
+export default function ArticleEditor({ initialHtml, onChange, onPickImage, onReady }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
+  // Vị trí con trỏ được lưu lại ngay trước khi mở media picker,
+  // để khi ảnh được chọn xong vẫn chèn đúng chỗ (picker làm editor mất focus).
+  const savedPosRef = useRef<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showCalloutMenu, setShowCalloutMenu] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
@@ -133,13 +143,16 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
         return false;
       },
       // Drag-drop file ảnh từ máy
-      handleDrop(_view, event, _slice, moved) {
+      handleDrop(view, event, _slice, moved) {
         if (moved) return false; // di chuyển node trong editor, không phải drop file
         const files = Array.from(event.dataTransfer?.files || []);
         const imageFiles = files.filter((f) => f.type.startsWith('image/'));
         if (imageFiles.length === 0) return false;
         event.preventDefault();
-        imageFiles.forEach((f) => uploadAndInsert(f));
+        // Chèn ngay tại vị trí thả chuột, không phải vị trí con trỏ cũ.
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        const dropPos = coords ? coords.pos : null;
+        imageFiles.forEach((f) => uploadAndInsert(f, dropPos));
         return true;
       },
     },
@@ -154,7 +167,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
   }, [initialHtml, editor]);
 
   const uploadAndInsert = useCallback(
-    async (file: File) => {
+    async (file: File, pos?: number | null) => {
       if (!editor) return;
       setUploading(true);
       try {
@@ -164,9 +177,11 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
           '/media/upload',
           fd
         );
-        editor
-          .chain()
-          .focus()
+        const chain = editor.chain();
+        // Chèn tại vị trí chỉ định (vd: chỗ thả ảnh); nếu không có thì tại con trỏ.
+        if (pos != null) chain.focus(pos);
+        else chain.focus();
+        chain
           .setResizableImage({
             src: result.url,
             alt: result.filename.replace(/\.[^.]+$/, ''),
@@ -180,6 +195,34 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
     },
     [editor]
   );
+
+  // Bấm nút ảnh trên thanh công cụ: lưu vị trí con trỏ hiện tại
+  // rồi mới mở media picker (vì mở picker sẽ làm editor mất focus/selection).
+  const handlePickImageClick = useCallback(() => {
+    if (editor) savedPosRef.current = editor.state.selection.from;
+    onPickImage();
+  }, [editor, onPickImage]);
+
+  // Chèn ảnh (từ media picker) đúng vào vị trí con trỏ đã lưu.
+  const insertImageAtCursor = useCallback(
+    (url: string, alt?: string) => {
+      if (!editor) return;
+      const pos = savedPosRef.current;
+      const chain = editor.chain();
+      // focus đúng vị trí đã lưu; nếu không có thì focus hiện tại
+      if (pos != null) chain.focus(pos);
+      else chain.focus();
+      chain.setResizableImage({ src: url, alt: alt ?? '' }).run();
+      savedPosRef.current = null;
+    },
+    [editor]
+  );
+
+  // Expose handle cho component cha (PostEditor) một lần khi editor sẵn sàng.
+  useEffect(() => {
+    if (editor && onReady) onReady({ insertImageAtCursor });
+    // eslint-disable-next-line
+  }, [editor]);
 
   async function aiContinue() {
     if (!editor) return;
@@ -530,7 +573,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage }: Pr
           <Link2 className="w-4 h-4" />
         </button>
 
-        <button type="button" onClick={onPickImage} className={btn(false)} title="Chèn ảnh từ thư viện">
+        <button type="button" onClick={handlePickImageClick} className={btn(false)} title="Chèn ảnh từ thư viện">
           <ImageIcon className="w-4 h-4" />
         </button>
 
