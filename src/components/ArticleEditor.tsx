@@ -90,6 +90,8 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
   const [customFontSize, setCustomFontSize] = useState('');
   const [showHtmlPasteDialog, setShowHtmlPasteDialog] = useState(false);
   const [htmlPasteContent, setHtmlPasteContent] = useState('');
+  // 'paste' = dán HTML mới (trống); 'edit' = sửa HTML hiện tại (nạp sẵn nội dung bài)
+  const [htmlDialogMode, setHtmlDialogMode] = useState<'paste' | 'edit'>('paste');
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [currentFAQs, setCurrentFAQs] = useState<FAQEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -635,6 +637,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
         <button
           type="button"
           onClick={() => {
+            setHtmlDialogMode('paste');
             setHtmlPasteContent('');
             setShowHtmlPasteDialog(true);
           }}
@@ -642,6 +645,19 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
           title="Dán HTML (cho bài viết soạn sẵn)"
         >
           <FileCode className="w-4 h-4" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setHtmlDialogMode('edit');
+            setHtmlPasteContent(editor.getHTML());
+            setShowHtmlPasteDialog(true);
+          }}
+          className={btn(false)}
+          title="Sửa HTML của bài viết hiện tại"
+        >
+          <Code className="w-4 h-4" />
         </button>
 
         <div className="w-px h-5 bg-gray-300 mx-1" />
@@ -737,11 +753,12 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <FileCode className="w-5 h-5 text-blue-600" />
-                Dán HTML
+                {htmlDialogMode === 'edit' ? 'Sửa HTML bài viết' : 'Dán HTML'}
               </h3>
               <p className="text-xs text-gray-500 mt-1">
-                Dán HTML đã soạn sẵn (từ AI, file khác…). Editor sẽ tự động render thành rich content.
-                Hỗ trợ: <code className="bg-gray-100 px-1 rounded">&lt;p&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;h2&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;ul&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;strong&gt;</code>, FAQ, table, image…
+                {htmlDialogMode === 'edit'
+                  ? 'Sửa trực tiếp mã HTML của toàn bộ bài viết rồi bấm Lưu thay đổi. Giữ nguyên các thẻ hợp lệ; tránh dán script lạ.'
+                  : <>Dán HTML đã soạn sẵn (từ AI, file khác…). Editor sẽ tự động render thành rich content. Hỗ trợ: <code className="bg-gray-100 px-1 rounded">&lt;p&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;h2&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;ul&gt;</code>, <code className="bg-gray-100 px-1 rounded">&lt;strong&gt;</code>, FAQ, table, image…</>}
               </p>
             </div>
 
@@ -762,23 +779,27 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
 
             <div className="p-4 border-t border-gray-200 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-600 flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="paste-mode"
-                    defaultChecked
-                    id="paste-replace"
-                  />
-                  Thay thế nội dung hiện tại
-                </label>
-                <label className="text-xs text-gray-600 flex items-center gap-1 cursor-pointer ml-3">
-                  <input
-                    type="radio"
-                    name="paste-mode"
-                    id="paste-append"
-                  />
-                  Chèn vào vị trí con trỏ
-                </label>
+                {htmlDialogMode === 'paste' && (
+                  <>
+                    <label className="text-xs text-gray-600 flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="paste-mode"
+                        defaultChecked
+                        id="paste-replace"
+                      />
+                      Thay thế nội dung hiện tại
+                    </label>
+                    <label className="text-xs text-gray-600 flex items-center gap-1 cursor-pointer ml-3">
+                      <input
+                        type="radio"
+                        name="paste-mode"
+                        id="paste-append"
+                      />
+                      Chèn vào vị trí con trỏ
+                    </label>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -792,11 +813,16 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
                   type="button"
                   onClick={() => {
                     if (!htmlPasteContent.trim()) return;
-                    const replace = (document.getElementById('paste-replace') as HTMLInputElement)?.checked;
-                    if (replace) {
+                    if (htmlDialogMode === 'edit') {
+                      // Sửa HTML: thay toàn bộ nội dung bài bằng HTML đã chỉnh.
                       editor.commands.setContent(htmlPasteContent, true);
                     } else {
-                      editor.chain().focus().insertContent(htmlPasteContent).run();
+                      const replace = (document.getElementById('paste-replace') as HTMLInputElement)?.checked;
+                      if (replace) {
+                        editor.commands.setContent(htmlPasteContent, true);
+                      } else {
+                        editor.chain().focus().insertContent(htmlPasteContent).run();
+                      }
                     }
                     setShowHtmlPasteDialog(false);
                     setHtmlPasteContent('');
@@ -804,7 +830,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
                   disabled={!htmlPasteContent.trim()}
                   className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Chèn HTML
+                  {htmlDialogMode === 'edit' ? 'Lưu thay đổi' : 'Chèn HTML'}
                 </button>
               </div>
             </div>
