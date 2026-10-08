@@ -87,6 +87,8 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
   const [uploading, setUploading] = useState(false);
   const [showCalloutMenu, setShowCalloutMenu] = useState(false);
   const [showCtaModal, setShowCtaModal] = useState(false);
+  // null = chèn mới; số = đang sửa node CTA tại vị trí đó
+  const [ctaEditPos, setCtaEditPos] = useState<number | null>(null);
   const [ctaDraft, setCtaDraft] = useState<CTAData>({
     eyebrow: 'KHÁM PHÁ THÊM',
     title: '',
@@ -273,6 +275,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
 
   // Mở modal CTA (lựa chọn mới trong nhóm Callout)
   function openCtaModal() {
+    setCtaEditPos(null); // chèn mới
     setCtaDraft({
       eyebrow: 'KHÁM PHÁ THÊM',
       title: '',
@@ -286,9 +289,34 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
   function insertCta() {
     if (!editor) return;
     if (!ctaDraft.title.trim()) return;
-    editor.chain().focus().setCtaBlock(ctaDraft).run();
+    if (ctaEditPos != null) {
+      // Đang sửa khối CTA có sẵn
+      editor.chain().focus().updateCtaBlock(ctaEditPos, ctaDraft).run();
+    } else {
+      // Chèn khối CTA mới
+      editor.chain().focus().setCtaBlock(ctaDraft).run();
+    }
     setShowCtaModal(false);
+    setCtaEditPos(null);
   }
+
+  // Lắng nghe double-click trên khối CTA (từ nodeView) để mở modal sửa.
+  useEffect(() => {
+    if (!editor) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as {
+        pos: number;
+        data: CTAData;
+      };
+      if (!detail) return;
+      setCtaEditPos(detail.pos);
+      setCtaDraft(detail.data);
+      setShowCtaModal(true);
+    };
+    const el = editor.view.dom;
+    el.addEventListener('yk-cta-edit', handler as EventListener);
+    return () => el.removeEventListener('yk-cta-edit', handler as EventListener);
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -726,10 +754,11 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-lg font-medium flex items-center gap-2">
                 <span className="inline-block w-4 h-4 rounded-sm" style={{ background: '#10233f' }} />
-                Khối CTA
+                {ctaEditPos != null ? 'Sửa khối CTA' : 'Khối CTA'}
               </h3>
               <p className="text-xs text-gray-500 mt-1">
                 Ô nền navy, chữ trắng, nút đỏ. Hiển thị như nhau trong bài và trên website.
+                {ctaEditPos == null && ' Mẹo: nhấp đúp vào khối CTA trong bài để sửa, nhấp 1 lần rồi Delete để xóa.'}
               </p>
             </div>
             <div className="p-4 space-y-3">
@@ -789,9 +818,28 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
                 </div>
               </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-2">
-              <button type="button" onClick={() => setShowCtaModal(false)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Hủy</button>
-              <button type="button" onClick={insertCta} disabled={!ctaDraft.title.trim()} className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">Chèn CTA</button>
+            <div className="p-4 border-t border-gray-200 flex items-center justify-between gap-2">
+              <div>
+                {ctaEditPos != null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editor && ctaEditPos != null) {
+                        editor.chain().focus().setNodeSelection(ctaEditPos).deleteSelection().run();
+                      }
+                      setShowCtaModal(false);
+                      setCtaEditPos(null);
+                    }}
+                    className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-md hover:bg-red-50"
+                  >
+                    Xóa khối
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => { setShowCtaModal(false); setCtaEditPos(null); }} className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Hủy</button>
+                <button type="button" onClick={insertCta} disabled={!ctaDraft.title.trim()} className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">{ctaEditPos != null ? 'Lưu thay đổi' : 'Chèn CTA'}</button>
+              </div>
             </div>
           </div>
         </div>
