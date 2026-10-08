@@ -24,6 +24,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { api } from '../lib/api';
 import { ResizableImage } from '../lib/ResizableImage';
 import { Callout } from '../lib/CalloutExtension';
+import { CTABlock, type CTAData } from '../lib/CTAExtension';
 import { FontSize } from '../lib/FontSizeExtension';
 import { FAQBlock, type FAQData } from '../lib/FAQExtension';
 import FAQManager, { type FAQEntry } from './FAQManager';
@@ -85,6 +86,13 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
   const savedPosRef = useRef<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showCalloutMenu, setShowCalloutMenu] = useState(false);
+  const [showCtaModal, setShowCtaModal] = useState(false);
+  const [ctaDraft, setCtaDraft] = useState<CTAData>({
+    eyebrow: 'KHÁM PHÁ THÊM',
+    title: '',
+    buttonText: 'Xem sản phẩm →',
+    buttonHref: '',
+  });
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
   const [customFontSize, setCustomFontSize] = useState('');
@@ -102,6 +110,7 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
       Underline,
       ResizableImage,
       Callout,
+      CTABlock,
       Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener', target: '_blank' } }),
       Placeholder.configure({
         placeholder: 'Bắt đầu viết bài… Kéo thả ảnh hoặc Ctrl+V để chèn ảnh nhanh.',
@@ -262,6 +271,25 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
     setShowCalloutMenu(false);
   }
 
+  // Mở modal CTA (lựa chọn mới trong nhóm Callout)
+  function openCtaModal() {
+    setCtaDraft({
+      eyebrow: 'KHÁM PHÁ THÊM',
+      title: '',
+      buttonText: 'Xem sản phẩm →',
+      buttonHref: 'https://yokool.vn/o-dien-du-lich/',
+    });
+    setShowCalloutMenu(false);
+    setShowCtaModal(true);
+  }
+
+  function insertCta() {
+    if (!editor) return;
+    if (!ctaDraft.title.trim()) return;
+    editor.chain().focus().setCtaBlock(ctaDraft).run();
+    setShowCtaModal(false);
+  }
+
   if (!editor) return null;
 
   const btn = (active: boolean) =>
@@ -369,6 +397,10 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
                 </button>
                 <button type="button" onClick={() => setCallout('tip')} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-gray-50 text-left">
                   <Lightbulb className="w-3.5 h-3.5 text-purple-600" /> Mẹo
+                </button>
+                <div className="my-1 border-t border-gray-200" />
+                <button type="button" onClick={openCtaModal} className="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-gray-50 text-left">
+                  <span className="inline-block w-3.5 h-3.5 rounded-sm" style={{ background: '#10233f' }} /> CTA (nút kêu gọi)
                 </button>
               </div>
             </>
@@ -686,6 +718,84 @@ export default function ArticleEditor({ initialHtml, onChange, onPickImage, onRe
       <div className="bg-white border border-gray-200 rounded-md p-5">
         <EditorContent editor={editor} />
       </div>
+
+      {/* Modal: CTA */}
+      {showCtaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <span className="inline-block w-4 h-4 rounded-sm" style={{ background: '#10233f' }} />
+                Khối CTA
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Ô nền navy, chữ trắng, nút đỏ. Hiển thị như nhau trong bài và trên website.
+              </p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nhãn nhỏ (eyebrow)</label>
+                <input
+                  type="text"
+                  value={ctaDraft.eyebrow}
+                  onChange={(e) => setCtaDraft({ ...ctaDraft, eyebrow: e.target.value })}
+                  placeholder="VD: KHÁM PHÁ THÊM"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tiêu đề <span className="text-red-500">*</span></label>
+                <textarea
+                  value={ctaDraft.title}
+                  onChange={(e) => setCtaDraft({ ...ctaDraft, title: e.target.value })}
+                  placeholder="VD: Xem bộ sưu tập sản phẩm Yokool — sạc thông minh, nhẹ gánh hành trình."
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Chữ trên nút</label>
+                  <input
+                    type="text"
+                    value={ctaDraft.buttonText}
+                    onChange={(e) => setCtaDraft({ ...ctaDraft, buttonText: e.target.value })}
+                    placeholder="Xem sản phẩm →"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Link của nút</label>
+                  <input
+                    type="text"
+                    value={ctaDraft.buttonHref}
+                    onChange={(e) => setCtaDraft({ ...ctaDraft, buttonHref: e.target.value })}
+                    placeholder="https://yokool.vn/..."
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              {/* Xem trước */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Xem trước</label>
+                <div style={{ background: '#10233f', borderRadius: 14, padding: 20 }}>
+                  {ctaDraft.eyebrow && (
+                    <div style={{ color: '#dc143b', fontSize: 11, letterSpacing: '0.14em', fontWeight: 700, textTransform: 'uppercase' }}>{ctaDraft.eyebrow}</div>
+                  )}
+                  <div style={{ color: '#fff', fontSize: 17, fontWeight: 700, margin: '8px 0 14px' }}>{ctaDraft.title || 'Tiêu đề CTA…'}</div>
+                  {ctaDraft.buttonText && ctaDraft.buttonHref && (
+                    <span style={{ display: 'inline-block', background: '#dc143b', color: '#fff', padding: '10px 18px', borderRadius: 8, fontSize: 14, fontWeight: 700 }}>{ctaDraft.buttonText}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setShowCtaModal(false)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Hủy</button>
+              <button type="button" onClick={insertCta} disabled={!ctaDraft.title.trim()} className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">Chèn CTA</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: FAQ Manager */}
       <FAQManager
